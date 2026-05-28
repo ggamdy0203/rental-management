@@ -1,0 +1,2470 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>임대관리 시스템</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<!-- Firebase 제거 → GitHub Gist 방식으로 교체 -->
+<style>
+:root {
+  --navy: #0f1f3d;
+  --blue: #1a56db;
+  --blue-light: #e8f0fe;
+  --green: #0e9f6e;
+  --green-light: #def7ec;
+  --red: #e02424;
+  --red-light: #fde8e8;
+  --yellow: #c27803;
+  --yellow-light: #fdf6b2;
+  --gray: #6b7280;
+  --gray-light: #f3f4f6;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text-sub: #6b7280;
+  --shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; background: #eef2f7; color: var(--text); font-size: 13px; }
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+/* ── AUTH ── */
+.auth-area { display:flex; align-items:center; gap:10px; flex-shrink:0; margin-left:auto; }
+.auth-btn { padding:7px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; text-decoration:none; display:inline-block; }
+.auth-btn-login  { background:rgba(255,255,255,0.12); color:white; border:1.5px solid rgba(255,255,255,0.35); }
+.auth-btn-login:hover { background:rgba(255,255,255,0.22); }
+.auth-btn-logout { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.85); border:1px solid rgba(255,255,255,0.25); }
+.auth-user-name { font-size:13px; color:rgba(255,255,255,0.9); max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.login-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9000; align-items:center; justify-content:center; }
+.login-modal.open { display:flex; }
+.login-modal:target { display:flex; }
+.modal-overlay:target { display:flex; }
+.login-box { background:white; border-radius:14px; padding:32px; width:380px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+.login-input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; box-sizing:border-box; margin-bottom:8px; }
+.login-input:focus { outline:none; border-color:var(--blue); }
+.google-btn { width:100%; padding:11px; border:1.5px solid var(--border); border-radius:8px; background:white; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:16px; text-decoration:none; color:var(--text); }
+.google-btn:hover { background:#f9fafb; }
+
+/* ── HEADER ── */
+.header {
+  background: var(--navy);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.header-brand { display: flex; align-items: center; gap: 10px; }
+.header-icon { width: 36px; height: 36px; background: var(--blue); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.header-title { font-size: 20px; font-weight: 800; color: white; letter-spacing: 0.5px; }
+.header-title span { color: #60a5fa; }
+.header-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+.header-nav { display: flex; gap: 4px; margin-left: 40px; }
+.nav-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.65);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+.nav-btn.active { background: var(--blue); color: white; }
+
+/* ── MAIN ── */
+.main { max-width: 1300px; margin: 0 auto; padding: 24px 20px; }
+
+/* ── CARDS ── */
+.card { background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 20px; }
+.card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+/* ── STAT GRID ── */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.stat-card { background: white; border-radius: 12px; box-shadow: var(--shadow); padding: 20px 20px 16px; }
+.stat-label { font-size: 12px; color: var(--text-sub); font-weight: 500; margin-bottom: 8px; }
+.stat-value { font-size: 26px; font-weight: 800; color: var(--text); }
+.stat-value.blue { color: var(--blue); }
+.stat-value.green { color: var(--green); }
+.stat-value.red { color: var(--red); }
+.stat-sub { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+th { background: #f8fafc; color: var(--text-sub); font-weight: 600; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); white-space: nowrap; }
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: #f8fafc; }
+
+/* expiry color rows */
+.row-red td { background: #fff5f5 !important; }
+.row-yellow td { background: #fffbeb !important; }
+.row-green td { background: #f0fdf4 !important; }
+.row-gray td { background: #f9fafb !important; color: #9ca3af !important; }
+
+/* ── BADGE ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-blue { background: var(--blue-light); color: var(--blue); }
+.badge-green { background: var(--green-light); color: #065f46; }
+.badge-red { background: var(--red-light); color: var(--red); }
+.badge-yellow { background: var(--yellow-light); color: var(--yellow); }
+.badge-gray { background: var(--gray-light); color: var(--gray); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: #1648c0; }
+.btn-success { background: var(--green); color: white; }
+.btn-success:hover { background: #057a55; }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #c81e1e; }
+.btn-outline { background: white; color: var(--text); border: 1.5px solid var(--border); }
+.btn-outline:hover { border-color: var(--blue); color: var(--blue); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-icon { padding: 5px 8px; }
+
+/* ── TOOLBAR ── */
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.search-input {
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  width: 200px;
+}
+.search-input:focus { outline: none; border-color: var(--blue); }
+
+/* ── TABS — .active 클래스만으로 제어 (CSS :target 제거) ── */
+.page { display: none; }
+.page.active { display: block; }
+/* Anchor nav-btn styling */
+a.nav-btn { text-decoration: none; display: inline-flex; align-items: center; }
+/* All anchor-buttons */
+a.btn, a.month-btn, a.modal-close, a.payment-status-btn { text-decoration: none; cursor: pointer; }
+
+/* ── Nav active state — JS _showPage()가 .active 클래스로 제어 ── */
+
+/* ── PDF UPLOAD ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafbff;
+}
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--blue); background: var(--blue-light); }
+.upload-icon { font-size: 48px; margin-bottom: 12px; }
+.upload-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.upload-sub { font-size: 13px; color: var(--text-sub); }
+
+/* ── MODAL ── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: white;
+  border-radius: 16px;
+  width: 640px;
+  max-width: 96vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+}
+.modal-title { font-size: 16px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 22px; color: var(--gray); cursor: pointer; padding: 0 4px; }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+
+/* ── FORM ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid.col3 { grid-template-columns: 1fr 1fr 1fr; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 12px; font-weight: 600; color: var(--text-sub); }
+.form-input, .form-select {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  background: white;
+  transition: border-color 0.15s;
+}
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--blue); }
+.form-section { font-size: 12px; font-weight: 700; color: var(--blue); margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--blue-light); grid-column: 1 / -1; }
+
+/* ── MONTHLY ── */
+.month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.month-display { font-size: 18px; font-weight: 800; color: var(--text); min-width: 160px; text-align: center; }
+.month-btn { background: white; border: 1.5px solid var(--border); border-radius: 8px; width: 32px; height: 32px; font-size: 16px; cursor: pointer; }
+.month-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+.payment-status-btn {
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ps-unpaid { background: var(--red-light); color: var(--red); }
+.ps-paid { background: var(--green-light); color: #065f46; }
+.ps-partial { background: var(--yellow-light); color: var(--yellow); }
+
+/* ── ALERT CARDS ── */
+.alert-list { display: flex; flex-direction: column; gap: 8px; }
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.alert-item.danger { background: var(--red-light); border-left: 3px solid var(--red); }
+.alert-item.warning { background: var(--yellow-light); border-left: 3px solid #f59e0b; }
+.alert-item.info { background: var(--green-light); border-left: 3px solid var(--green); }
+.alert-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot-red { background: var(--red); }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: var(--green); }
+
+/* ── LOADING ── */
+.loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+}
+.loading-overlay.open { display: flex; }
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 5px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: white; font-size: 15px; font-weight: 600; }
+
+/* ── SETTINGS ── */
+.settings-section { margin-bottom: 28px; }
+/* API 키가 입력되면 CSS만으로 즉시 저장됨 표시 (JS 이벤트 불필요) */
+#api-key-input:not(:placeholder-shown) + #save-status:empty::after {
+  content: '✓ 저장됨';
+  color: #0e9f6e;
+  font-weight: 700;
+  font-size: 12px;
+}
+.settings-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.settings-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.settings-label { font-size: 12px; font-weight: 600; color: var(--text-sub); width: 120px; flex-shrink: 0; }
+.settings-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.settings-input:focus { outline: none; border-color: var(--blue); }
+
+/* ── RESULT PREVIEW ── */
+.result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.result-item { background: var(--gray-light); border-radius: 8px; padding: 10px 12px; }
+.result-key { font-size: 11px; color: var(--text-sub); font-weight: 600; margin-bottom: 2px; }
+.result-val { font-size: 13px; font-weight: 700; color: var(--text); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: #1f2937;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 3000;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s;
+  max-width: 360px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 4px solid var(--green); }
+.toast.error { border-left: 4px solid var(--red); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .header-nav { display: none; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+.empty-state { text-align: center; padding: 48px 24px; color: var(--text-sub); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-text { font-size: 14px; font-weight: 600; }
+.empty-sub { font-size: 12px; margin-top: 4px; }
+
+/* ── SORT & DRAG ── */
+th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+th.sortable:hover { background: #e8f0fe; color: var(--blue); }
+.sort-icon { font-size: 10px; margin-left: 2px; color: var(--blue); font-weight: 700; }
+.drag-handle { cursor: grab; color: #c4c9d4; font-size: 17px; line-height: 1; display: inline-block; user-select: none; }
+.drag-handle:hover { color: var(--blue); }
+tr.drag-over td { background: #dbeafe !important; box-shadow: inset 0 2px 0 var(--blue); }
+/* ── DASHBOARD CALENDAR ── */
+.dash-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.dash-cal-head { text-align: center; font-size: 11px; font-weight: 700; color: var(--text-sub); padding: 4px 0 8px; }
+.dash-cal-head.sun { color: #e02424; }
+.dash-cal-head.sat { color: #1a56db; }
+.dash-cal-day {
+  min-height: 80px; border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 5px; background: white; vertical-align: top; position: relative;
+  font-size: 11px;
+}
+.dash-cal-day.today { background: #eff6ff; border-color: var(--blue); }
+.dash-cal-day.other-month { background: var(--gray-light); opacity: 0.5; }
+.dash-cal-day-num { font-size: 11px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.dash-cal-day-num.sun { color: #e02424; }
+.dash-cal-day-num.sat { color: #1a56db; }
+.dash-cal-day-num.today-num {
+  background: var(--blue); color: white; border-radius: 50%;
+  width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+}
+.dash-cal-event {
+  border-radius: 3px; padding: 2px 5px; margin-bottom: 2px; font-size: 10px;
+  font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: default; line-height: 1.4;
+}
+.dash-cal-event.pay        { background: #dbeafe; color: #1e40af; cursor: pointer; }
+.dash-cal-event.pay.paid   { background: var(--green-light); color: #065f46; }
+.dash-cal-event.pay.partial{ background: var(--yellow-light); color: var(--yellow); }
+.dash-cal-event.pay.unpaid { background: var(--red-light); color: var(--red); }
+.dash-cal-event.expire  { background: #fee2e2; color: #991b1b; }
+.dash-cal-event.warn60  { background: #fef3c7; color: #92400e; }
+.dash-cal-event.warn180 { background: #d1fae5; color: #065f46; }
+.expiry-caution { border-radius: 10px; padding: 12px 16px; margin-bottom: 8px; font-size: 12px; line-height: 1.7; }
+.expiry-caution.red    { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
+.expiry-caution.yellow { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; }
+
+tr[draggable="true"]:hover .drag-handle { color: var(--blue); }
+</style>
+</head>
+<body ondragover="event.preventDefault()" ondrop="handleWindowDrop(event)">
+<noscript><div style="position:fixed;top:0;left:0;right:0;background:#e02424;color:white;text-align:center;padding:12px;z-index:9999;font-size:15px;font-weight:700;">⚠️ JavaScript가 비활성화되어 있습니다 — 브라우저 설정에서 JavaScript를 켜주세요</div></noscript>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-brand">
+    <div class="header-icon">🏢</div>
+    <div>
+      <div class="header-title">임대<span>관리</span></div>
+      <div class="header-sub">RENTAL MANAGEMENT SYSTEM</div>
+    </div>
+  </div>
+  <div class="header-nav">
+    <button onclick="_showPage('dashboard')" class="nav-btn">대시보드</button>
+    <button onclick="_showPage('contracts')" class="nav-btn active">계약 목록</button>
+    <button onclick="_showPage('monthly')" class="nav-btn">월세 현황</button>
+    <button onclick="_showPage('pdf')" class="nav-btn">PDF 분석</button>
+    <button onclick="_showPage('settings')" class="nav-btn">설정</button>
+  </div>
+  <div class="auth-area">
+    <div id="gistStatusArea" style="display:flex;align-items:center;gap:8px;">
+      <span id="gistUserBadge" style="font-size: 12px; color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.12); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.25);">
+        🐙 <span id="gistUserName">ggamdy0203</span>
+      </span>
+      <button onclick="gistSync()" id="btnGistSync" style="" class="auth-btn auth-btn-login">☁️ 동기화</button>
+      <button onclick="gistDisconnect()" id="btnGistDisconnect" style="" class="auth-btn auth-btn-logout">연결 해제</button>
+      <button onclick="openGistSetup()" id="btnGistSetup" class="auth-btn auth-btn-login" style="display: none;">🔑 GitHub 연결</button>
+    </div>
+  </div>
+</div>
+
+<!-- GitHub Gist 설정 모달 -->
+<div class="login-modal" id="gistModal">
+  <div class="login-box" style="width:440px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="font-size:18px;font-weight:700">🐙 GitHub Gist 연결</h2>
+      <button onclick="closeGistSetup()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#9ca3af;line-height:1;">✕</button>
+    </div>
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 14px;font-size:12px;color:#0369a1;margin-bottom:16px;line-height:1.8;">
+      <b>Personal Access Token</b> 발급 방법:<br>
+      1. <a href="https://github.com/settings/tokens/new" target="_blank" style="color:var(--blue);font-weight:600;">github.com/settings/tokens/new</a> 접속<br>
+      2. Note에 <b>임대관리</b> 입력<br>
+      3. <b>gist</b> 권한 체크 ✅<br>
+      4. Generate token → 복사해서 아래에 붙여넣기
+    </div>
+    <input class="login-input" type="password" id="gistTokenInput" placeholder="ghp_xxxxxxxxxxxxxxxx">
+    <div id="gistTokenError" style="color:var(--red);font-size:12px;margin-bottom:8px;display:none;padding:6px 10px;background:#fde8e8;border-radius:6px"></div>
+    <button onclick="gistConnect()" style="width:100%;padding:11px;background:var(--blue);color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:4px;">
+      연결하기
+    </button>
+    <p style="font-size:11px;color:#9ca3af;margin-top:12px;text-align:center;">토큰은 이 브라우저에만 저장되며 외부로 전송되지 않습니다</p>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- ── 대시보드 ── -->
+  <div id="page-dashboard" class="page">
+    <div class="stat-grid" id="stat-grid">
+      <div class="stat-card">
+        <div class="stat-label">📋 전체 계약</div>
+        <div class="stat-value blue" id="stat-total">5</div>
+        <div class="stat-sub">활성 <span id="stat-active">5</span>건 / 만료 <span id="stat-expired">0</span>건</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">💰 이번달 월세 합계</div>
+        <div class="stat-value green" id="stat-monthly-total">310만원</div>
+        <div class="stat-sub">관리비 포함</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏦 총 보증금</div>
+        <div class="stat-value" id="stat-deposit">1.1억원</div>
+        <div class="stat-sub">활성 계약 기준</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">⚠️ 만료 예정 (90일)</div>
+        <div class="stat-value red" id="stat-expiring">0</div>
+        <div class="stat-sub">건</div>
+      </div>
+    </div>
+
+    <!-- 만료 통지 경고 배너 -->
+    <div id="expiry-caution-banner" style="display:none;margin-bottom:16px;"></div>
+
+    <!-- 대시보드 캘린더 -->
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);">
+        <div style="font-weight:700;font-size:14px;">📅 월별 납부 일정 &amp; 계약 만료</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="dashCalPrev()" style="background:none;border:1px solid var(--border);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;">‹</button>
+          <span id="dashCalTitle" style="font-size:13px;font-weight:700;min-width:90px;text-align:center;">2026년 5월</span>
+          <button onclick="dashCalNext()" style="background:none;border:1px solid var(--border);border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;">›</button>
+          <button onclick="dashCalToday()" style="background:var(--blue-light);color:var(--blue);border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;">오늘</button>
+        </div>
+      </div>
+      <!-- 범례 -->
+      <div style="display:flex;gap:16px;padding:8px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:#1a56db;display:inline-block;"></span>납부일</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:#e02424;display:inline-block;"></span>계약 만료</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:#c27803;display:inline-block;"></span>만료 D-60 (통지 마감)</span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:11px;"><span style="width:10px;height:10px;border-radius:2px;background:#0e9f6e;display:inline-block;"></span>만료 D-90 (통지 권장)</span>
+      </div>
+      <div id="dashCal" style="padding:12px 18px 18px;"><div class="dash-cal-grid"><div class="dash-cal-head sun">일</div><div class="dash-cal-head ">월</div><div class="dash-cal-head ">화</div><div class="dash-cal-head ">수</div><div class="dash-cal-head ">목</div><div class="dash-cal-head ">금</div><div class="dash-cal-head sat">토</div><div class="dash-cal-day other-month"><span class="dash-cal-day-num sun">26</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">27</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">28</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">29</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">30</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">1</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sat">2</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sun">3</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">4</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">5</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">6</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">7</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">8</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sat">9</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sun">10</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">11</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">12</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">13</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">14</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">15</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sat">16</span><div class="dash-cal-event pay paid" title="연산다올 503호 / 김형조 / 60만원" onclick="dashCyclePayment('P005','2026-05')">연산다올 503호 / 김형조 / 60만원</div></div><div class="dash-cal-day "><span class="dash-cal-day-num sun">17</span><div class="dash-cal-event pay paid" title="연산다올 502호 / 김민석 / 60만원" onclick="dashCyclePayment('P004','2026-05')">연산다올 502호 / 김민석 / 60만원</div></div><div class="dash-cal-day "><span class="dash-cal-day-num ">18</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">19</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">20</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">21</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">22</span><div class="dash-cal-event pay paid" title="연산다올 202호 / 최상민 / 65만원" onclick="dashCyclePayment('P002','2026-05')">연산다올 202호 / 최상민 / 65만원</div></div><div class="dash-cal-day "><span class="dash-cal-day-num sat">23</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sun">24</span><div class="dash-cal-event pay paid" title="연산다올 204호 / 박상언 / 65만원" onclick="dashCyclePayment('P001','2026-05')">연산다올 204호 / 박상언 / 65만원</div></div><div class="dash-cal-day "><span class="dash-cal-day-num ">25</span></div><div class="dash-cal-day today"><span class="dash-cal-day-num today-num">26</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">27</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">28</span></div><div class="dash-cal-day "><span class="dash-cal-day-num ">29</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sat">30</span></div><div class="dash-cal-day "><span class="dash-cal-day-num sun">31</span><div class="dash-cal-event pay unpaid" title="연산다올 304호 / 이정혜 / 60만원" onclick="dashCyclePayment('P003','2026-05')">연산다올 304호 / 이정혜 / 60만원</div></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">1</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">2</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">3</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">4</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num ">5</span></div><div class="dash-cal-day other-month"><span class="dash-cal-day-num sat">6</span></div></div></div>
+    </div>
+  </div>
+
+  <!-- ── 계약 목록 ── -->
+  <div id="page-contracts" class="page active">
+    <div class="card">
+      <div class="toolbar">
+        <input class="search-input" type="text" placeholder="🔍 주소, 임차인 검색..." id="search-input" oninput="renderContracts()">
+        <button onclick="openContractModal()" class="btn btn-primary" id="btn-add-contract">+ 계약 추가</button>
+        <button onclick="_showPage('pdf')" class="btn btn-outline" id="btn-go-pdf">📄 PDF로 추가</button>
+        <button onclick="exportExcel()" class="btn btn-outline" id="btn-export-excel">📊 엑셀 내보내기</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-sub)">총 <span id="contracts-count">5</span>건</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th id="th-drag" style="width:30px;padding:10px 4px;text-align:center;color:#c4c9d4" title="드래그로 순서 변경">⠿</th>
+              <th class="sortable" onclick="sortContracts('id')">ID<span class="sort-icon" id="sort-id"></span></th>
+              <th class="sortable" onclick="sortContracts('address')">주소 / 호수<span class="sort-icon" id="sort-address"></span></th>
+              <th class="sortable" onclick="sortContracts('tenant')">임차인<span class="sort-icon" id="sort-tenant"></span></th>
+              <th class="sortable" onclick="sortContracts('deposit')">보증금<span class="sort-icon" id="sort-deposit"></span></th>
+              <th class="sortable" onclick="sortContracts('rent')">월세+관리비<span class="sort-icon" id="sort-rent"></span></th>
+              <th class="sortable" onclick="sortContracts('paymentDay')">납입일<span class="sort-icon" id="sort-paymentDay"></span></th>
+              <th class="sortable" onclick="sortContracts('startDate')">계약기간<span class="sort-icon" id="sort-startDate"></span></th>
+              <th class="sortable" onclick="sortContracts('days')">잔여일<span class="sort-icon" id="sort-days"></span></th>
+              <th>상태</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="contracts-tbody"><tr class="" data-id="P002" draggable="true" ondragstart="dragRowStart(event,'P002')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'P002')" ondragend="dragRowEnd(event)">
+      <td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">P002</span></td>
+      <td><strong>연산다올 202호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4 연산다올</span></td>
+      <td>최상민<br><span style="font-size:11px;color:var(--text-sub)">010-8382-9044</span></td>
+      <td>2000만원</td>
+      <td>65만원<br><span style="font-size:11px;color:var(--text-sub)">65만원+0원</span></td>
+      <td>매월 22일</td>
+      <td style="font-size:11px">2026-04-22<br>~ 2028-04-21</td>
+      <td style="text-align:center">696일</td>
+      <td><span class="badge badge-blue">정상</span></td>
+      <td>
+        <button onclick="viewContractPdf('P002')" class="btn btn-outline btn-sm" title="계약서 PDF 보기">📄</button> 
+        <button onclick="editContract('P002')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('P002')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr><tr class="" data-id="P001" draggable="true" ondragstart="dragRowStart(event,'P001')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'P001')" ondragend="dragRowEnd(event)">
+      <td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">P001</span></td>
+      <td><strong>연산다올 204호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4</span></td>
+      <td>박상언<br><span style="font-size:11px;color:var(--text-sub)">010-8736-3143</span></td>
+      <td>2000만원</td>
+      <td>65만원<br><span style="font-size:11px;color:var(--text-sub)">65만원+0원</span></td>
+      <td>매월 24일</td>
+      <td style="font-size:11px">2026-04-24<br>~ 2028-04-23</td>
+      <td style="text-align:center">698일</td>
+      <td><span class="badge badge-blue">정상</span></td>
+      <td>
+        <button onclick="viewContractPdf('P001')" class="btn btn-outline btn-sm" title="계약서 PDF 보기">📄</button> 
+        <button onclick="editContract('P001')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('P001')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr><tr class="" data-id="P003" draggable="true" ondragstart="dragRowStart(event,'P003')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'P003')" ondragend="dragRowEnd(event)">
+      <td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">P003</span></td>
+      <td><strong>연산다올 304호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4 연산다올</span></td>
+      <td>이정혜<br><span style="font-size:11px;color:var(--text-sub)">010-3764-6902</span></td>
+      <td>2500만원</td>
+      <td>60만원<br><span style="font-size:11px;color:var(--text-sub)">60만원+0원</span></td>
+      <td>매월 31일</td>
+      <td style="font-size:11px">2026-05-31<br>~ 2028-05-30</td>
+      <td style="text-align:center">735일</td>
+      <td><span class="badge badge-blue">정상</span></td>
+      <td>
+        
+        <button onclick="editContract('P003')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('P003')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr><tr class="" data-id="P004" draggable="true" ondragstart="dragRowStart(event,'P004')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'P004')" ondragend="dragRowEnd(event)">
+      <td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">P004</span></td>
+      <td><strong>연산다올 502호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4 다올빌</span></td>
+      <td>김민석<br><span style="font-size:11px;color:var(--text-sub)">010-7174-6473</span></td>
+      <td>2000만원</td>
+      <td>60만원<br><span style="font-size:11px;color:var(--text-sub)">60만원+0원</span></td>
+      <td>매월 17일</td>
+      <td style="font-size:11px">2026-03-17<br>~ 2028-03-16</td>
+      <td style="text-align:center">660일</td>
+      <td><span class="badge badge-blue">정상</span></td>
+      <td>
+        
+        <button onclick="editContract('P004')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('P004')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr><tr class="" data-id="P005" draggable="true" ondragstart="dragRowStart(event,'P005')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'P005')" ondragend="dragRowEnd(event)">
+      <td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">P005</span></td>
+      <td><strong>연산다올 503호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4</span></td>
+      <td>김형조<br><span style="font-size:11px;color:var(--text-sub)">010-5098-8359</span></td>
+      <td>2500만원</td>
+      <td>60만원<br><span style="font-size:11px;color:var(--text-sub)">60만원+0원</span></td>
+      <td>매월 16일</td>
+      <td style="font-size:11px">2026-05-16<br>~ 2028-05-15</td>
+      <td style="text-align:center">720일</td>
+      <td><span class="badge badge-blue">정상</span></td>
+      <td>
+        
+        <button onclick="editContract('P005')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('P005')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr></tbody>
+        </table>
+      </div>
+      <div id="contracts-empty" class="empty-state" style="display: none;">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">등록된 계약이 없습니다</div>
+        <div class="empty-sub">PDF 분석 또는 직접 입력으로 계약을 추가하세요</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 월세 현황 ── -->
+  <div id="page-monthly" class="page">
+    <div class="card">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)" class="month-btn" id="btn-month-prev">◀</button>
+        <div class="month-display" id="month-display">2026년 5월</div>
+        <button onclick="changeMonth(1)" class="month-btn" id="btn-month-next">▶</button>
+        <button onclick="goToToday()" class="btn btn-outline btn-sm" id="btn-month-today">오늘</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--text-sub)">이번달 예정: <strong id="monthly-expected">250만원</strong> | 입금: <strong id="monthly-paid" style="color:var(--green)">250만원</strong> | 미납: <strong id="monthly-unpaid" style="color:var(--red)">0원</strong></span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>물건</th>
+              <th>임차인</th>
+              <th>납입예정일</th>
+              <th>월세</th>
+              <th>관리비</th>
+              <th>합계</th>
+              <th>납부상태</th>
+              <th>실입금일</th>
+              <th>실입금액</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="monthly-tbody"><tr>
+      <td><strong>연산다올 202호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4 연산다올</span></td>
+      <td>최상민<br><span style="font-size:11px;color:var(--text-sub)">010-8382-9044</span></td>
+      <td style="">매월 22일</td>
+      <td>65만원</td>
+      <td>0원</td>
+      <td><strong>65만원</strong></td>
+      <td>
+        <button onclick="cyclePayment('P002','2026-05')" class="payment-status-btn ps-paid">
+          납부완료
+        </button>
+      </td>
+      <td><input type="date" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit" value="2026-05-26" onchange="updatePaymentDate('P002','2026-05',this.value)"></td>
+      <td><input type="number" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:90px;font-size:11px;font-family:inherit" placeholder="65만" value="" onchange="updatePaymentAmount('P002','2026-05',this.value)"></td>
+      <td><input type="text" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:80px;font-size:11px;font-family:inherit" placeholder="메모" value="" onchange="updatePaymentNote('P002','2026-05',this.value)"></td>
+    </tr><tr>
+      <td><strong>연산다올 204호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4</span></td>
+      <td>박상언<br><span style="font-size:11px;color:var(--text-sub)">010-8736-3143</span></td>
+      <td style="">매월 24일</td>
+      <td>65만원</td>
+      <td>0원</td>
+      <td><strong>65만원</strong></td>
+      <td>
+        <button onclick="cyclePayment('P001','2026-05')" class="payment-status-btn ps-paid">
+          납부완료
+        </button>
+      </td>
+      <td><input type="date" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit" value="2026-05-26" onchange="updatePaymentDate('P001','2026-05',this.value)"></td>
+      <td><input type="number" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:90px;font-size:11px;font-family:inherit" placeholder="65만" value="" onchange="updatePaymentAmount('P001','2026-05',this.value)"></td>
+      <td><input type="text" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:80px;font-size:11px;font-family:inherit" placeholder="메모" value="" onchange="updatePaymentNote('P001','2026-05',this.value)"></td>
+    </tr><tr>
+      <td><strong>연산다올 502호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4 다올빌</span></td>
+      <td>김민석<br><span style="font-size:11px;color:var(--text-sub)">010-7174-6473</span></td>
+      <td style="">매월 17일</td>
+      <td>60만원</td>
+      <td>0원</td>
+      <td><strong>60만원</strong></td>
+      <td>
+        <button onclick="cyclePayment('P004','2026-05')" class="payment-status-btn ps-paid">
+          납부완료
+        </button>
+      </td>
+      <td><input type="date" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit" value="2026-05-26" onchange="updatePaymentDate('P004','2026-05',this.value)"></td>
+      <td><input type="number" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:90px;font-size:11px;font-family:inherit" placeholder="60만" value="" onchange="updatePaymentAmount('P004','2026-05',this.value)"></td>
+      <td><input type="text" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:80px;font-size:11px;font-family:inherit" placeholder="메모" value="" onchange="updatePaymentNote('P004','2026-05',this.value)"></td>
+    </tr><tr>
+      <td><strong>연산다올 503호</strong><br><span style="font-size:11px;color:var(--text-sub)">부산광역시 연제구 연산동 2149-4</span></td>
+      <td>김형조<br><span style="font-size:11px;color:var(--text-sub)">010-5098-8359</span></td>
+      <td style="">매월 16일</td>
+      <td>60만원</td>
+      <td>0원</td>
+      <td><strong>60만원</strong></td>
+      <td>
+        <button onclick="cyclePayment('P005','2026-05')" class="payment-status-btn ps-paid">
+          납부완료
+        </button>
+      </td>
+      <td><input type="date" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit" value="2026-05-26" onchange="updatePaymentDate('P005','2026-05',this.value)"></td>
+      <td><input type="number" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:90px;font-size:11px;font-family:inherit" placeholder="60만" value="" onchange="updatePaymentAmount('P005','2026-05',this.value)"></td>
+      <td><input type="text" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:80px;font-size:11px;font-family:inherit" placeholder="메모" value="" onchange="updatePaymentNote('P005','2026-05',this.value)"></td>
+    </tr></tbody>
+        </table>
+      </div>
+      <div id="monthly-empty" class="empty-state" style="display: none;">
+        <div class="empty-icon">💰</div>
+        <div class="empty-text">해당 월에 납부 예정인 계약이 없습니다</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PDF 분석 ── -->
+  <div id="page-pdf" class="page">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+      <div class="card">
+        <div class="card-title">📄 계약서 PDF 업로드</div>
+        <div class="upload-zone" id="upload-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title">PDF 파일을 끌어다 놓거나 클릭하세요</div>
+          <div class="upload-sub" style="margin-top:4px">임대차계약서 PDF를 업로드하면 Gemini AI가 자동으로 분석합니다</div>
+          <div style="margin-top:16px">
+            <label for="pdf-input" class="btn btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">📎 파일 선택</label>
+          </div>
+        </div>
+        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleFileSelect(event)">
+        <div id="file-info" style="display: none; margin-top: 12px; padding: 10px 14px; background: var(--blue-light); border-radius: 8px; font-size: 12px;">
+          <strong id="file-name">연산다올 202호 임대차계약_20260414.pdf</strong> <span id="file-size" style="color:var(--text-sub)">(733KB)</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🤖 AI 분석 결과</div>
+        <div id="result-empty" class="empty-state" style="display: none;"><div class="empty-icon">🔍</div><div class="empty-text">PDF를 업로드하면 분석 결과가 표시됩니다</div></div>
+        <div id="result-content" style="display: block;">
+          <div class="result-grid" id="result-grid"><div class="result-item"><div class="result-key">주소</div><div class="result-val">부산광역시 연제구 연산동 2149-4</div></div><div class="result-item"><div class="result-key">동/호수</div><div class="result-val">연산다올 202호</div></div><div class="result-item"><div class="result-key">부동산종류</div><div class="result-val">주택</div></div><div class="result-item"><div class="result-key">면적</div><div class="result-val">31229㎡</div></div><div class="result-item"><div class="result-key">임차인</div><div class="result-val">최상민</div></div><div class="result-item"><div class="result-key">연락처</div><div class="result-val">010-8382-9044</div></div><div class="result-item"><div class="result-key">임차인구분</div><div class="result-val">개인</div></div><div class="result-item"><div class="result-key">보증금</div><div class="result-val">2000만원</div></div><div class="result-item"><div class="result-key">월세</div><div class="result-val">65만원</div></div><div class="result-item"><div class="result-key">계약시작일</div><div class="result-val">2026-04-22</div></div><div class="result-item"><div class="result-key">계약종료일</div><div class="result-val">2028-04-21</div></div><div class="result-item"><div class="result-key">월세납입일</div><div class="result-val">매월 22일</div></div><div class="result-item"><div class="result-key">특약사항</div><div class="result-val">임차인은 현 시설물 상태 확인 후 임대차하며, 입주 전 관리비 및 공과금은 임대인이 정산한다. 월차임은 매월 22일 선불로 65만원을 입금하며, 관리비 및 개별 공과금은 별도 납부한다. 임차인은 임대물건의 원형을 보전하고 소모품 파손 시 수리 비용을 부담한다. 건물 노후시설물 고장 및 파손은 임대인이 수리한다. 월차임 2개월 이상 연체 시 계약 해지 가능하며, 계약 종료 2개월 전 갱신 여부를 통보해야 한다. 계약 만료 전 퇴실 시 새 임차인 입주 시까지 월세, 관리비, 중개수수료를 부담해야 한다. 퇴실 시 청소비 25만원을 부담하거나 청소해야 하며, 반려동물로 인한 시설 훼손 시 원상복구 및 퇴거 시 전문 청소 및 소독을 완료해야 한다. 전월세 신고제 의무가 있다.</div></div></div>
+          <div style="margin-top:16px;display:flex;gap:10px;">
+            <button onclick="saveExtractedContract()" class="btn btn-primary" id="btn-save-extracted">✅ 계약 목록에 저장</button>
+            <button onclick="openContractModalWithData()" class="btn btn-outline" id="btn-edit-before-save">✏️ 수정 후 저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 설정 ── -->
+  <div id="page-settings" class="page">
+    <div class="card" style="max-width:600px">
+      <div class="settings-section">
+        <div class="settings-title">🤖 Gemini AI 설정</div>
+        <div class="settings-row">
+          <div class="settings-label">API 키</div>
+          <input class="settings-input" type="password" id="api-key-input" placeholder="AIzaSy..." oninput="autoSaveSettings()">
+          <span id="save-status" style="font-size:12px;font-weight:700;color:#0e9f6e;white-space:nowrap;min-width:60px">✓ 저장됨</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-sub);margin-top:-6px;margin-bottom:8px">API 키를 입력하면 자동으로 저장됩니다</div>
+        <div class="settings-row">
+          <div class="settings-label">AI 모델</div>
+          <select class="settings-input" id="model-select" style="flex:0.5" onchange="autoSaveSettings()">
+            <option value="gemini-2.5-flash">gemini-2.5-flash ✅ (권장)</option>
+            <option value="gemini-2.0-flash">gemini-2.0-flash (안정)</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash (구버전)</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro (고성능)</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--text-sub);margin-top:4px">
+          API 키 발급: <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--blue)">aistudio.google.com/app/apikey</a> (무료)
+        </div>
+      </div>
+
+      <!-- GitHub Gist 연결 상태 -->
+      <div class="settings-section">
+        <div class="settings-title">☁️ GitHub Gist 동기화</div>
+        <div id="gistSettingStatus" style="padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 12px; background: rgb(222, 247, 236); color: rgb(6, 95, 70);">✅ <b>ggamdy0203</b> 연결됨 — 데이터가 GitHub Gist에 자동 저장됩니다.</div>
+        <div style="font-size:12px;color:var(--text-sub);line-height:1.9;">
+          연결하면 계약 데이터 + PDF가 본인의 <b>Secret Gist</b>에 자동 저장됩니다.<br>
+          어느 PC에서나 같은 토큰으로 연결하면 데이터를 불러올 수 있습니다.
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">📊 데이터 관리</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button onclick="exportAllData()" class="btn btn-outline" id="btn-export-data">💾 전체 데이터 백업 (JSON)</button>
+          <button onclick="importData()" class="btn btn-outline" id="btn-import-data">📂 데이터 복원</button>
+          <button onclick="clearAllData()" class="btn btn-danger" id="btn-clear-data">🗑️ 전체 데이터 삭제</button>
+        </div>
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">ℹ️ 사용 안내</div>
+        <div style="font-size:12.5px;color:var(--text-sub);line-height:1.8">
+          1. 설정 탭에서 Gemini API 키를 입력하세요 (무료)<br>
+          2. PDF 분석 탭에서 계약서를 업로드하면 AI가 자동으로 정보를 추출합니다<br>
+          3. 계약 목록 탭에서 모든 계약을 확인하고 수정할 수 있습니다<br>
+          4. 월세 현황 탭에서 매월 납부 상태를 관리하세요<br>
+          5. 데이터는 이 브라우저와 (설정 시) 클라우드에 저장됩니다
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ── CONTRACT MODAL ── -->
+<div class="modal-overlay" id="contract-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">계약 추가</div>
+      <button onclick="closeContractModal()" class="modal-close" id="btn-modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id">
+      <div class="form-grid">
+        <div class="form-section">🏢 부동산 정보</div>
+        <div class="form-group full">
+          <label>주소 *</label>
+          <input class="form-input" id="f-address" placeholder="예: 부산시 연제구 연산동 1234-5">
+        </div>
+        <div class="form-group">
+          <label>동/호수</label>
+          <input class="form-input" id="f-unit" placeholder="예: 연산다올 502호">
+        </div>
+        <div class="form-group">
+          <label>부동산 종류</label>
+          <select class="form-select" id="f-type">
+            <option>아파트</option><option>오피스텔</option><option>상가</option><option>사무실</option><option>주택</option><option>기타</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>면적 (㎡)</label>
+          <input class="form-input" id="f-area" type="number" placeholder="예: 84">
+        </div>
+
+        <div class="form-section">👤 임차인 정보</div>
+        <div class="form-group">
+          <label>임차인명 *</label>
+          <input class="form-input" id="f-tenant" placeholder="이름 또는 법인명">
+        </div>
+        <div class="form-group">
+          <label>연락처</label>
+          <input class="form-input" id="f-phone" placeholder="010-0000-0000">
+        </div>
+        <div class="form-group">
+          <label>임차인 구분</label>
+          <select class="form-select" id="f-tenant-type">
+            <option>개인</option><option>법인</option>
+          </select>
+        </div>
+
+        <div class="form-section">💰 계약 조건</div>
+        <div class="form-group">
+          <label>보증금 (원) *</label>
+          <input class="form-input" id="f-deposit" type="number" placeholder="예: 50000000">
+        </div>
+        <div class="form-group">
+          <label>월세 (원) *</label>
+          <input class="form-input" id="f-rent" type="number" placeholder="예: 500000">
+        </div>
+        <div class="form-group">
+          <label>관리비 (원)</label>
+          <input class="form-input" id="f-maintenance" type="number" placeholder="예: 50000" value="0">
+        </div>
+        <div class="form-group">
+          <label>월세 납입일 (매월 N일) *</label>
+          <input class="form-input" id="f-payment-day" type="number" min="1" max="31" placeholder="예: 10">
+        </div>
+        <div class="form-group">
+          <label>계약 시작일 *</label>
+          <input class="form-input" id="f-start" type="date">
+        </div>
+        <div class="form-group">
+          <label>계약 종료일 *</label>
+          <input class="form-input" id="f-end" type="date">
+        </div>
+        <div class="form-group">
+          <label>계약일</label>
+          <input class="form-input" id="f-contract-date" type="date">
+        </div>
+        <div class="form-group">
+          <label>계약 유형</label>
+          <select class="form-select" id="f-contract-type">
+            <option>신규</option><option>갱신</option><option>묵시적갱신</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>특약사항</label>
+          <textarea class="form-input" id="f-special" rows="2" placeholder="특약사항을 입력하세요"></textarea>
+        </div>
+        <div class="form-group full">
+          <label>메모</label>
+          <textarea class="form-input" id="f-notes" rows="2" placeholder="내부 메모"></textarea>
+        </div>
+        <div class="form-group full">
+          <label>계약서 PDF</label>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0">
+            <input type="file" id="f-pdf" accept=".pdf" style="display:none" onchange="handleContractPdf(event)">
+            <label for="f-pdf" class="btn btn-outline btn-sm" style="cursor:pointer;flex-shrink:0">📎 PDF 업로드</label>
+            <span id="f-pdf-name" style="font-size:12px;color:var(--text-sub);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <button type="button" id="f-pdf-view" onclick="viewModalPdf()" class="btn btn-outline btn-sm" style="display:none;flex-shrink:0">👁 미리보기</button>
+            <button type="button" id="f-pdf-clear" onclick="clearModalPdf()" class="btn btn-danger btn-sm" style="display:none;flex-shrink:0">삭제</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+            <span style="font-size:12px;color:var(--text-sub);flex-shrink:0;">🔗 Google Drive 링크</span>
+            <input type="text" id="f-drive-link" placeholder="https://drive.google.com/file/d/..." class="form-input" style="font-size:12px;">
+          </div>
+          <div style="font-size:11px;color:var(--text-sub);margin-top:4px;">Google Drive에 PDF 올리고 공유링크 붙여넣기 → 어느 PC에서나 열람 가능</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeContractModal()" class="btn btn-outline" id="btn-modal-cancel">취소</button>
+      <button onclick="saveContract()" class="btn btn-primary" id="btn-modal-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LOADING ── -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">PDF 분석 중... (10~30초 소요)</div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast success" id="toast">✅ 납부완료로 변경됐습니다</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+// 저장소 헬퍼 (localStorage → sessionStorage 순으로 시도)
+function storageGet(key) {
+  try { const v = localStorage.getItem(key); if (v !== null) return v; } catch(e) {}
+  try { const v = sessionStorage.getItem(key); if (v !== null) return v; } catch(e) {}
+  return null;
+}
+function storageSet(key, value) {
+  try { localStorage.setItem(key, value); return true; } catch(e) {}
+  try { sessionStorage.setItem(key, value); return true; } catch(e) {}
+  return false;
+}
+
+let contracts = [];
+let settings = {apiKey:'', model:'gemini-1.5-flash-latest'};
+let contractPdfs = {};           // { contractId: { data: 'data:...base64...', name: 'file.pdf' } }
+let modalPdfData = null;         // 모달 열린 동안 임시 보관
+let modalPdfName = '';
+try { contracts    = JSON.parse(storageGet('rental_contracts') || '[]'); } catch(e) {}
+try {
+  settings = JSON.parse(storageGet('rental_settings') || '{}');
+  // 유효한 모델명 목록 — 이 목록에 없으면 기본값으로 복구
+  const validModels = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-1.5-flash','gemini-2.0-flash-lite'];
+  if (!settings.model || !validModels.includes(settings.model)) settings.model = 'gemini-2.5-flash';
+} catch(e) { settings = {apiKey:'', model:'gemini-2.5-flash'}; }
+try { contractPdfs = JSON.parse(storageGet('rental_pdfs')      || '{}'); } catch(e) {}
+try { deduplicateContractIds(); } catch(e) {}  // PDF 로드 후 실행
+let currentMonth = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+let extractedData = null;
+let contractSortCol = null;
+let contractSortDir = 1;
+let dragSrcId = null;
+
+function saveData() {
+  storageSet('rental_contracts', JSON.stringify(contracts));
+  syncToCloudIfConnected();
+}
+function savePdfs() {
+  storageSet('rental_pdfs', JSON.stringify(contractPdfs));
+}
+
+function deduplicateContractIds() {
+  // seenIds: 이번 패스에서 이미 확정된 ID
+  // allIds: 현재 배열에 존재하는 모든 ID (미처리 항목 포함)
+  const seenIds = new Set();
+  const allIds = new Set(contracts.map(c => c.id).filter(Boolean));
+  let changed = false;
+
+  contracts.forEach(c => {
+    if (!c.id || seenIds.has(c.id)) {
+      // 기존 중복 ID를 예약 목록에서 제거 (이 항목은 새 ID를 받음)
+      allIds.delete(c.id);
+      // seenIds + allIds 둘 다 없는 첫 번째 번호 탐색
+      let num = 1, newId;
+      do {
+        newId = 'P' + String(num).padStart(3, '0');
+        num++;
+      } while (seenIds.has(newId) || allIds.has(newId));
+      // PDF도 새 ID로 이관
+      if (contractPdfs[c.id]) { contractPdfs[newId] = contractPdfs[c.id]; delete contractPdfs[c.id]; }
+      c.id = newId;
+      allIds.add(newId);
+      changed = true;
+    }
+    seenIds.add(c.id);
+  });
+  if (changed) {
+    saveData();
+    savePdfs();
+    try { toast('⚠️ 중복 ID를 자동 수정했습니다. 데이터가 재저장됩니다.', 'error'); } catch(e) {}
+  }
+}
+
+// ── NAVIGATION ───────────────────────────────────────
+function showPage(name) {
+  _showPage(name);
+}
+
+// ── DASHBOARD ────────────────────────────────────────
+// ── DASHBOARD CALENDAR ──────────────────────────────
+let dashCalYear  = new Date().getFullYear();
+let dashCalMonth = new Date().getMonth() + 1; // 1-based
+
+function dashCalPrev() { dashCalMonth--; if (dashCalMonth < 1) { dashCalMonth = 12; dashCalYear--; } renderDashboard(); }
+function dashCalNext() { dashCalMonth++; if (dashCalMonth > 12) { dashCalMonth = 1; dashCalYear++; } renderDashboard(); }
+function dashCalToday() { dashCalYear = new Date().getFullYear(); dashCalMonth = new Date().getMonth() + 1; renderDashboard(); }
+
+function renderDashboard() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const active = contracts.filter(c => c.endDate && new Date(c.endDate) >= today);
+  const expired = contracts.filter(c => c.endDate && new Date(c.endDate) < today);
+  const totalRent = active.reduce((s, c) => s + (Number(c.monthlyRent)||0) + (Number(c.maintenance)||0), 0);
+  const totalDeposit = active.reduce((s, c) => s + (Number(c.deposit)||0), 0);
+
+  document.getElementById('stat-total').textContent = contracts.length;
+  document.getElementById('stat-active').textContent = active.length;
+  document.getElementById('stat-expired').textContent = expired.length;
+  document.getElementById('stat-monthly-total').textContent = formatMoney(totalRent);
+  document.getElementById('stat-deposit').textContent = formatMoney(totalDeposit);
+
+  // ── 만료 통지 경고 배너 (D-90 ~ D-60) ──────────────
+  const cautions = [];
+  contracts.forEach(c => {
+    if (!c.endDate) return;
+    const end = new Date(c.endDate); end.setHours(0,0,0,0);
+    const days = Math.ceil((end - today) / 86400000);
+    const label = c.unit || c.address;
+    if (days > 0 && days <= 60) {
+      cautions.push({ cls:'red', days, label, tenant: c.tenant, endDate: c.endDate,
+        msg: `⚠️ <b>[통지 마감 임박]</b> ${label} / ${c.tenant} — 만료 <b>D-${days}</b> (${c.endDate})<br>
+        주택임대차보호법상 임대인은 만료 <b>2개월 전</b>까지 갱신거절 통지 필요 — 지금 즉시 통지하세요!` });
+    } else if (days > 60 && days <= 90) {
+      cautions.push({ cls:'yellow', days, label, tenant: c.tenant, endDate: c.endDate,
+        msg: `📢 <b>[통지 권장]</b> ${label} / ${c.tenant} — 만료 <b>D-${days}</b> (${c.endDate})<br>
+        만료 6개월~2개월 전이 법적 갱신거절 통지 기간입니다. 갱신 여부를 임차인과 협의하세요.` });
+    }
+  });
+  cautions.sort((a,b) => a.days - b.days);
+  const bannerEl = document.getElementById('expiry-caution-banner');
+  if (cautions.length > 0) {
+    bannerEl.style.display = '';
+    bannerEl.innerHTML = cautions.map(c =>
+      `<div class="expiry-caution ${c.cls}">${c.msg}</div>`
+    ).join('');
+  } else {
+    bannerEl.style.display = 'none';
+  }
+
+  // 만료 예정 90일 카운트
+  const expiring = contracts.filter(c => {
+    if (!c.endDate) return false;
+    const d = Math.ceil((new Date(c.endDate) - today) / 86400000);
+    return d > 0 && d <= 90;
+  });
+  document.getElementById('stat-expiring').textContent = expiring.length;
+
+  // ── 캘린더 렌더링 ─────────────────────────────────
+  const y = dashCalYear, m = dashCalMonth;
+  document.getElementById('dashCalTitle').textContent = `${y}년 ${m}월`;
+
+  const firstDay = new Date(y, m-1, 1).getDay(); // 0=일
+  const lastDate = new Date(y, m, 0).getDate();
+  const prevLastDate = new Date(y, m-1, 0).getDate();
+
+  // 이벤트 맵 { day: [{type, label}] }
+  const eventMap = {};
+  const addEv = (day, ev) => { if (!eventMap[day]) eventMap[day] = []; eventMap[day].push(ev); };
+
+  // 납부일 이벤트 (상태 포함)
+  const payKey = `${y}-${String(m).padStart(2,'0')}`;
+  // 캘린더에 표시할 달의 첫날/마지막날
+  const calMonthStart = new Date(y, m-1, 1);
+  const calMonthEnd   = new Date(y, m, 0);   // 해당 월 마지막일
+  calMonthStart.setHours(0,0,0,0);
+  calMonthEnd.setHours(23,59,59,999);
+
+  contracts.forEach(c => {
+    if (!c.paymentDay) return;
+
+    // ── 계약 기간 체크 ──────────────────────────────
+    // 이 달이 계약 시작일보다 이전이면 표시 안 함
+    if (c.startDate) {
+      const start = new Date(c.startDate); start.setHours(0,0,0,0);
+      if (calMonthEnd < start) return;   // 표시 월 전체가 계약 시작 전
+    }
+    // 이 달이 계약 종료일보다 이후면 표시 안 함
+    if (c.endDate) {
+      const end = new Date(c.endDate); end.setHours(23,59,59,999);
+      if (calMonthStart > end) return;   // 표시 월 전체가 계약 종료 후
+    }
+    // ──────────────────────────────────────────────
+
+    const pd = Number(c.paymentDay);
+    const maxDay = new Date(y, m, 0).getDate();
+    const d = Math.min(pd, maxDay);
+    const status = c.payments?.[payKey]?.status || 'unpaid';
+    const label = `${c.unit||c.address} / ${c.tenant} / ${formatMoney((Number(c.monthlyRent)||0)+(Number(c.maintenance)||0))}`;
+    addEv(d, { type:'pay', status, id: c.id, payKey, label });
+  });
+
+  // 계약 만료 / 통지 이벤트
+  contracts.forEach(c => {
+    if (!c.endDate) return;
+    const end = new Date(c.endDate); end.setHours(0,0,0,0);
+    const days = Math.ceil((end - today) / 86400000);
+    const label = `${c.unit||c.address} / ${c.tenant}`;
+
+    // 만료일이 이번달이면 표시
+    if (end.getFullYear() === y && end.getMonth() === m-1) {
+      addEv(end.getDate(), { type:'expire', label: `만료: ${label}` });
+    }
+    // D-60 통지마감일 (만료 60일 전)
+    const warn60 = new Date(end); warn60.setDate(warn60.getDate() - 60);
+    if (warn60.getFullYear() === y && warn60.getMonth() === m-1) {
+      addEv(warn60.getDate(), { type:'warn60', label: `통지마감: ${label}` });
+    }
+    // D-90 통지권장일 (만료 90일 전)
+    const warn180 = new Date(end); warn180.setDate(warn180.getDate() - 90);
+    if (warn180.getFullYear() === y && warn180.getMonth() === m-1) {
+      addEv(warn180.getDate(), { type:'warn180', label: `통지권장: ${label}` });
+    }
+  });
+
+  // 달력 HTML 생성
+  const days7 = ['일','월','화','수','목','금','토'];
+  let html = '<div class="dash-cal-grid">';
+  // 헤더
+  days7.forEach((d,i) => {
+    const cls = i===0?'sun':i===6?'sat':'';
+    html += `<div class="dash-cal-head ${cls}">${d}</div>`;
+  });
+
+  // 날짜 셀
+  const totalCells = Math.ceil((firstDay + lastDate) / 7) * 7;
+  for (let i = 0; i < totalCells; i++) {
+    const col = i % 7;
+    let day, isOther = false, monthOffset = 0;
+    if (i < firstDay) {
+      day = prevLastDate - firstDay + i + 1; isOther = true; monthOffset = -1;
+    } else if (i >= firstDay + lastDate) {
+      day = i - firstDay - lastDate + 1; isOther = true; monthOffset = 1;
+    } else {
+      day = i - firstDay + 1;
+    }
+    const cellDate = new Date(y, m-1+monthOffset, day);
+    cellDate.setHours(0,0,0,0);
+    const isToday = cellDate.getTime() === today.getTime();
+    const numCls = col===0?'sun':col===6?'sat':'';
+    const cellCls = isOther?'other-month':isToday?'today':'';
+
+    let numHtml = isToday
+      ? `<span class="dash-cal-day-num today-num">${day}</span>`
+      : `<span class="dash-cal-day-num ${numCls}">${day}</span>`;
+
+    let evHtml = '';
+    if (!isOther && eventMap[day]) {
+      eventMap[day].forEach(ev => {
+        if (ev.type === 'pay') {
+          evHtml += `<div class="dash-cal-event pay ${ev.status}" title="${ev.label}"
+            onclick="dashCyclePayment('${ev.id}','${ev.payKey}')">${ev.label}</div>`;
+        } else {
+          evHtml += `<div class="dash-cal-event ${ev.type}" title="${ev.label}">${ev.label}</div>`;
+        }
+      });
+    }
+    html += `<div class="dash-cal-day ${cellCls}">${numHtml}${evHtml}</div>`;
+  }
+  html += '</div>';
+  document.getElementById('dashCal').innerHTML = html;
+}
+
+// ── CONTRACTS ────────────────────────────────────────
+function renderContracts() {
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const today = new Date();
+  let filtered = contracts.filter(c =>
+    !q || (c.address+c.unit+c.tenant).toLowerCase().includes(q)
+  );
+
+  // Pre-compute days for sorting
+  const rows = filtered.map(c => {
+    const endDate = c.endDate ? new Date(c.endDate) : null;
+    const days = endDate ? Math.ceil((endDate - today) / 86400000) : null;
+    return { c, days };
+  });
+
+  // Apply column sort
+  if (contractSortCol) {
+    rows.sort((a, b) => {
+      let av, bv;
+      switch (contractSortCol) {
+        case 'id':         av = a.c.id||'';              bv = b.c.id||'';              break;
+        case 'address':    av = (a.c.unit||a.c.address||'').toLowerCase(); bv = (b.c.unit||b.c.address||'').toLowerCase(); break;
+        case 'tenant':     av = (a.c.tenant||'').toLowerCase();  bv = (b.c.tenant||'').toLowerCase();  break;
+        case 'deposit':    av = Number(a.c.deposit)||0;          bv = Number(b.c.deposit)||0;           break;
+        case 'rent':       av = (Number(a.c.monthlyRent)||0)+(Number(a.c.maintenance)||0); bv = (Number(b.c.monthlyRent)||0)+(Number(b.c.maintenance)||0); break;
+        case 'paymentDay': av = Number(a.c.paymentDay)||0;       bv = Number(b.c.paymentDay)||0;        break;
+        case 'startDate':  av = a.c.startDate||'';              bv = b.c.startDate||'';                break;
+        case 'days':       av = a.days !== null ? a.days : 99999; bv = b.days !== null ? b.days : 99999; break;
+        default:           av = ''; bv = '';
+      }
+      if (av < bv) return -contractSortDir;
+      if (av > bv) return contractSortDir;
+      return 0;
+    });
+  }
+
+  document.getElementById('contracts-count').textContent = filtered.length;
+  const tbody = document.getElementById('contracts-tbody');
+  const empty = document.getElementById('contracts-empty');
+  const thDrag = document.getElementById('th-drag');
+
+  // 드래그는 수동 정렬 모드일 때만 활성화
+  const isDraggable = contractSortCol === null;
+  if (thDrag) thDrag.style.display = isDraggable ? '' : 'none';
+
+  // 정렬 아이콘 업데이트
+  ['id','address','tenant','deposit','rent','paymentDay','startDate','days'].forEach(col => {
+    const el = document.getElementById('sort-' + col);
+    if (el) el.textContent = contractSortCol === col ? (contractSortDir === 1 ? '▲' : '▼') : '';
+  });
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(({ c, days }) => {
+    let rowCls = '', statusBadge = '';
+    if (!c.endDate || days < 0) { rowCls = 'row-gray'; statusBadge = '<span class="badge badge-gray">만료</span>'; }
+    else if (days <= 30) { rowCls = 'row-red';    statusBadge = `<span class="badge badge-red">D-${days}</span>`; }
+    else if (days <= 60) { rowCls = 'row-yellow'; statusBadge = `<span class="badge badge-yellow">D-${days}</span>`; }
+    else if (days <= 90) { rowCls = 'row-green';  statusBadge = `<span class="badge badge-green">D-${days}</span>`; }
+    else { statusBadge = '<span class="badge badge-blue">정상</span>'; }
+
+    const total = (Number(c.monthlyRent)||0) + (Number(c.maintenance)||0);
+    const dAttrs = isDraggable
+      ? `draggable="true" ondragstart="dragRowStart(event,'${c.id}')" ondragover="dragRowOver(event)" ondragleave="dragRowLeave(event)" ondrop="dragRowDrop(event,'${c.id}')" ondragend="dragRowEnd(event)"`
+      : '';
+    const dragCell = isDraggable
+      ? `<td style="width:30px;text-align:center;padding:10px 4px"><span class="drag-handle" title="드래그하여 순서 변경">⠿</span></td>`
+      : '';
+
+    return `<tr class="${rowCls}" data-id="${c.id}" ${dAttrs}>
+      ${dragCell}
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text-sub)">${c.id}</span></td>
+      <td><strong>${c.unit||c.address}</strong><br><span style="font-size:11px;color:var(--text-sub)">${c.address}</span></td>
+      <td>${c.tenant}<br><span style="font-size:11px;color:var(--text-sub)">${c.phone||''}</span></td>
+      <td>${formatMoney(c.deposit)}</td>
+      <td>${formatMoney(total)}<br><span style="font-size:11px;color:var(--text-sub)">${formatMoney(c.monthlyRent)}+${formatMoney(c.maintenance)}</span></td>
+      <td>매월 ${c.paymentDay||'-'}일</td>
+      <td style="font-size:11px">${c.startDate||'-'}<br>~ ${c.endDate||'-'}</td>
+      <td style="text-align:center">${days!==null && days>=0 ? days+'일' : '-'}</td>
+      <td>${statusBadge}</td>
+      <td>
+        ${(contractPdfs[c.id]) ? `<button onclick="viewContractPdf('${c.id}')" class="btn btn-outline btn-sm" title="계약서 PDF 보기 (로컬)">📄</button> ` : (c.driveLink ? `<button onclick="openDriveLink('${c.id}')" class="btn btn-outline btn-sm" title="Google Drive에서 열기" style="color:#0e9f6e;border-color:#0e9f6e;">🔗</button> ` : '')}
+        <button onclick="editContract('${c.id}')" class="btn btn-outline btn-sm">수정</button>
+        <button onclick="deleteContract('${c.id}')" class="btn btn-danger btn-sm" style="margin-left:4px">삭제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function applySortToContracts(list) {
+  if (!contractSortCol) return list; // 정렬 없음 → contracts 배열 순서 유지
+  const today = new Date();
+  return [...list].sort((a, b) => {
+    let av, bv;
+    switch (contractSortCol) {
+      case 'id':         av = a.id||'';              bv = b.id||'';              break;
+      case 'address':    av = (a.unit||a.address||'').toLowerCase(); bv = (b.unit||b.address||'').toLowerCase(); break;
+      case 'tenant':     av = (a.tenant||'').toLowerCase();  bv = (b.tenant||'').toLowerCase();  break;
+      case 'deposit':    av = Number(a.deposit)||0;          bv = Number(b.deposit)||0;           break;
+      case 'rent':       av = (Number(a.monthlyRent)||0)+(Number(a.maintenance)||0); bv = (Number(b.monthlyRent)||0)+(Number(b.maintenance)||0); break;
+      case 'paymentDay': av = Number(a.paymentDay)||0;       bv = Number(b.paymentDay)||0;        break;
+      case 'startDate':  av = a.startDate||'';              bv = b.startDate||'';                break;
+      case 'days': {
+        const eA = a.endDate ? new Date(a.endDate) : null;
+        const eB = b.endDate ? new Date(b.endDate) : null;
+        av = eA ? Math.ceil((eA - today) / 86400000) : 99999;
+        bv = eB ? Math.ceil((eB - today) / 86400000) : 99999;
+        break;
+      }
+      default: av = ''; bv = '';
+    }
+    if (av < bv) return -contractSortDir;
+    if (av > bv) return contractSortDir;
+    return 0;
+  });
+}
+
+function sortContracts(col) {
+  if (contractSortCol === col) {
+    if (contractSortDir === -1) { contractSortCol = null; contractSortDir = 1; }
+    else { contractSortDir = -1; }
+  } else {
+    contractSortCol = col;
+    contractSortDir = 1;
+  }
+  renderContracts();
+}
+
+// ── CONTRACT PDF ──────────────────────────────────────
+function handleContractPdf(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('PDF 파일이 10MB를 초과합니다', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    modalPdfData = ev.target.result;
+    modalPdfName = file.name;
+    document.getElementById('f-pdf-name').textContent = file.name;
+    document.getElementById('f-pdf-view').style.display = '';
+    document.getElementById('f-pdf-clear').style.display = '';
+    toast('PDF가 업로드되었습니다. 저장 버튼을 눌러 확정하세요.', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function viewModalPdf() {
+  if (!modalPdfData) { toast('업로드된 PDF가 없습니다', 'error'); return; }
+  openPdfViewer(modalPdfData);
+}
+
+async function viewContractPdf(id) {
+  // 1순위: 로컬 localStorage
+  const local = contractPdfs[id];
+  if (local) { openPdfViewer(local.data); return; }
+  // 2순위: Google Drive 링크
+  const c = contracts.find(x => x.id === id);
+  if (c?.driveLink) { openDriveLink(id); return; }
+  toast('저장된 계약서 PDF가 없습니다', 'error');
+}
+
+function openDriveLink(id) {
+  const c = contracts.find(x => x.id === id);
+  if (!c?.driveLink) { toast('Google Drive 링크가 없습니다', 'error'); return; }
+  // Google Drive 공유링크를 미리보기 링크로 변환
+  let url = c.driveLink.trim();
+  // https://drive.google.com/file/d/FILE_ID/view → https://drive.google.com/file/d/FILE_ID/preview
+  url = url.replace('/view?usp=sharing', '/preview').replace('/view', '/preview');
+  window.open(url, '_blank');
+}
+
+function openPdfViewer(dataUrl) {
+  try {
+    const base64 = dataUrl.split(',')[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+      // 팝업 차단 시 다운로드 링크로 대체
+      const a = document.createElement('a');
+      a.href = url; a.download = 'contract.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch(e) { toast('PDF를 열 수 없습니다: ' + e.message, 'error'); }
+}
+
+function clearModalPdf() {
+  modalPdfData = null; modalPdfName = '';
+  modalPdfCleared = true; // 사용자가 명시적으로 삭제 — 저장 시 클라우드에서도 제거
+  const inp = document.getElementById('f-pdf');
+  if (inp) inp.value = '';
+  const nameEl = document.getElementById('f-pdf-name');
+  if (nameEl) nameEl.textContent = '';
+  const viewEl = document.getElementById('f-pdf-view');
+  if (viewEl) viewEl.style.display = 'none';
+  const clearEl = document.getElementById('f-pdf-clear');
+  if (clearEl) clearEl.style.display = 'none';
+}
+
+function dragRowStart(e, id) {
+  dragSrcId = id;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', id);
+  setTimeout(() => { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.style.opacity = '0.4'; }, 0);
+}
+function dragRowOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('#contracts-tbody tr.drag-over').forEach(r => r.classList.remove('drag-over'));
+  e.currentTarget.classList.add('drag-over');
+}
+function dragRowLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    e.currentTarget.classList.remove('drag-over');
+  }
+}
+function dragRowDrop(e, targetId) {
+  e.preventDefault();
+  document.querySelectorAll('#contracts-tbody tr').forEach(tr => tr.classList.remove('drag-over'));
+  if (!dragSrcId || dragSrcId === targetId) { dragSrcId = null; return; }
+  const srcIdx = contracts.findIndex(c => c.id === dragSrcId);
+  const tgtIdx = contracts.findIndex(c => c.id === targetId);
+  if (srcIdx < 0 || tgtIdx < 0) { dragSrcId = null; return; }
+  const [moved] = contracts.splice(srcIdx, 1);
+  contracts.splice(tgtIdx, 0, moved);
+  dragSrcId = null;
+  saveData();
+  renderContracts();
+}
+function dragRowEnd(e) {
+  dragSrcId = null;
+  document.querySelectorAll('#contracts-tbody tr').forEach(tr => {
+    tr.classList.remove('drag-over');
+    tr.style.opacity = '';
+  });
+}
+
+// ── MONTHLY ──────────────────────────────────────────
+function renderMonthly() {
+  const {year:y, month:m} = currentMonth;
+  document.getElementById('month-display').textContent = `${y}년 ${m}월`;
+
+  const today = new Date();
+  const firstDay = new Date(y, m-1, 1);
+  const lastDay = new Date(y, m, 0);
+  const key = `${y}-${String(m).padStart(2,'0')}`;
+
+  const active = contracts.filter(c => {
+    if (!c.startDate || !c.endDate || !c.paymentDay) return false;
+    const start = new Date(c.startDate);
+    const end = new Date(c.endDate);
+    return start <= lastDay && end >= firstDay;
+  });
+
+  const tbody = document.getElementById('monthly-tbody');
+  const empty = document.getElementById('monthly-empty');
+
+  if (active.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('monthly-expected').textContent = '0원';
+    document.getElementById('monthly-paid').textContent = '0원';
+    document.getElementById('monthly-unpaid').textContent = '0원';
+    return;
+  }
+  empty.style.display = 'none';
+
+  let totalExpected = 0, totalPaid = 0;
+  tbody.innerHTML = applySortToContracts(active).map(c => {
+    const expected = (Number(c.monthlyRent)||0) + (Number(c.maintenance)||0);
+    totalExpected += expected;
+    const p = c.payments?.[key] || {};
+    const status = p.status || 'unpaid';
+    const paidAmt = Number(p.amount) || 0;
+    if (status === 'paid') totalPaid += expected;
+    else if (status === 'partial') totalPaid += paidAmt;
+
+    const dueDay = Number(c.paymentDay);
+    const dueDate = new Date(y, m-1, dueDay);
+    const overdue = today > dueDate && status === 'unpaid';
+
+    return `<tr>
+      <td><strong>${c.unit||''}</strong><br><span style="font-size:11px;color:var(--text-sub)">${c.address}</span></td>
+      <td>${c.tenant}${c.phone ? `<br><span style="font-size:11px;color:var(--text-sub)">${c.phone}</span>` : ''}</td>
+      <td style="${overdue?'color:var(--red);font-weight:700':''}">매월 ${c.paymentDay}일${overdue?' ⚠️':''}</td>
+      <td>${formatMoney(c.monthlyRent)}</td>
+      <td>${formatMoney(c.maintenance)}</td>
+      <td><strong>${formatMoney(expected)}</strong></td>
+      <td>
+        <button onclick="cyclePayment('${c.id}','${key}')" class="payment-status-btn ps-${status==='paid'?'paid':status==='partial'?'partial':'unpaid'}">
+          ${status==='paid'?'납부완료':status==='partial'?'일부납부':'미납'}
+        </button>
+      </td>
+      <td><input type="date" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:11px;font-family:inherit"
+        value="${p.paidDate||''}" onchange="updatePaymentDate('${c.id}','${key}',this.value)"></td>
+      <td><input type="number" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:90px;font-size:11px;font-family:inherit"
+        placeholder="${formatMoney(expected).replace('원','')}" value="${p.amount||''}" onchange="updatePaymentAmount('${c.id}','${key}',this.value)"></td>
+      <td><input type="text" style="border:1px solid var(--border);border-radius:6px;padding:3px 6px;width:80px;font-size:11px;font-family:inherit"
+        placeholder="메모" value="${p.note||''}" onchange="updatePaymentNote('${c.id}','${key}',this.value)"></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('monthly-expected').textContent = formatMoney(totalExpected);
+  document.getElementById('monthly-paid').textContent = formatMoney(totalPaid);
+  document.getElementById('monthly-unpaid').textContent = formatMoney(totalExpected - totalPaid);
+}
+
+function changeMonth(delta) {
+  currentMonth.month += delta;
+  if (currentMonth.month > 12) { currentMonth.month = 1; currentMonth.year++; }
+  if (currentMonth.month < 1) { currentMonth.month = 12; currentMonth.year--; }
+  renderMonthly();
+}
+function goToToday() {
+  currentMonth = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+  renderMonthly();
+}
+
+function cyclePayment(id, key) {
+  const c = contracts.find(x => x.id === id);
+  if (!c) return;
+  if (!c.payments) c.payments = {};
+  if (!c.payments[key]) c.payments[key] = {};
+  const cur = c.payments[key].status || 'unpaid';
+  const next = cur === 'unpaid' ? 'paid' : cur === 'paid' ? 'partial' : 'unpaid';
+  c.payments[key].status = next;
+  if (next === 'paid') c.payments[key].paidDate = new Date().toISOString().slice(0,10);
+  saveData();
+  renderMonthly();
+}
+
+// 대시보드 캘린더에서 납부 상태 변경 (renderDashboard도 갱신)
+function dashCyclePayment(id, key) {
+  const c = contracts.find(x => x.id === id);
+  if (!c) return;
+  if (!c.payments) c.payments = {};
+  if (!c.payments[key]) c.payments[key] = {};
+  const cur = c.payments[key].status || 'unpaid';
+  const next = cur === 'unpaid' ? 'paid' : cur === 'paid' ? 'partial' : 'unpaid';
+  c.payments[key].status = next;
+  if (next === 'paid') c.payments[key].paidDate = new Date().toISOString().slice(0,10);
+  saveData();
+  renderDashboard();
+  const label = next === 'paid' ? '✅ 납부완료' : next === 'partial' ? '🔶 일부납부' : '❌ 미납';
+  toast(`${label}로 변경됐습니다`, 'success');
+}
+function updatePaymentDate(id, key, val) {
+  const c = contracts.find(x=>x.id===id);
+  if (!c) return;
+  if (!c.payments) c.payments = {};
+  if (!c.payments[key]) c.payments[key] = {};
+  c.payments[key].paidDate = val;
+  saveData();
+}
+function updatePaymentAmount(id, key, val) {
+  const c = contracts.find(x=>x.id===id);
+  if (!c) return;
+  if (!c.payments) c.payments = {};
+  if (!c.payments[key]) c.payments[key] = {};
+  c.payments[key].amount = val;
+  saveData();
+}
+function updatePaymentNote(id, key, val) {
+  const c = contracts.find(x=>x.id===id);
+  if (!c) return;
+  if (!c.payments) c.payments = {};
+  if (!c.payments[key]) c.payments[key] = {};
+  c.payments[key].note = val;
+  saveData();
+}
+
+// ── PDF ANALYSIS ─────────────────────────────────────
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('upload-zone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') processFile(file);
+  else toast('PDF 파일만 지원됩니다', 'error');
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const info = document.getElementById('file-info');
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-size').textContent = `(${(file.size/1024).toFixed(0)}KB)`;
+  info.style.display = 'block';
+
+  const apiKey = settings.apiKey;
+  if (!apiKey) {
+    // 결과 패널에 오류 표시
+    document.getElementById('result-empty').innerHTML =
+      '<div class="empty-icon">⚙️</div><div class="empty-text" style="color:#e53e3e">먼저 설정 탭에서<br>Gemini API 키를 입력해주세요</div>' +
+      '<button onclick="_showPage(\'settings\')" class="btn btn-primary" style="margin-top:12px">설정으로 이동</button>';
+    document.getElementById('result-empty').style.display = 'block';
+    toast('먼저 설정에서 Gemini API 키를 입력하세요', 'error');
+    return;
+  }
+
+  // 결과 패널에 로딩 상태 표시
+  document.getElementById('result-content').style.display = 'none';
+  document.getElementById('result-empty').style.display = 'block';
+  document.getElementById('result-empty').innerHTML =
+    '<div class="empty-icon" style="animation:spin 1.5s linear infinite;display:inline-block">⏳</div>' +
+    '<div class="empty-text">AI가 계약서를 분석하고 있습니다...<br><span style="font-size:12px;color:#9ca3af">10~30초 소요됩니다</span></div>';
+
+  showLoading('PDF 분석 중... (10~30초 소요)');
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    try {
+      const result = await analyzeWithGemini(base64, apiKey);
+      extractedData = result;
+      // 결과 패널 원래대로 복원 후 결과 표시
+      document.getElementById('result-empty').innerHTML =
+        '<div class="empty-icon">🔍</div><div class="empty-text">PDF를 업로드하면 분석 결과가 표시됩니다</div>';
+      showResult(result);
+      hideLoading();
+      toast('✅ 분석 완료! 내용을 확인하세요', 'success');
+    } catch (err) {
+      hideLoading();
+      // 오류를 결과 패널에 영구적으로 표시 (토스트는 3초 후 사라짐)
+      let errMsg = err.message || '알 수 없는 오류';
+      let hint = '';
+      if (errMsg.includes('API_KEY') || errMsg.includes('INVALID') || errMsg.includes('invalid')) hint = '<br><span style="font-size:11px">→ 설정에서 API 키를 다시 확인해주세요</span>';
+      else if (errMsg.includes('quota') || errMsg.includes('QUOTA') || errMsg.includes('exhausted')) hint = '<br><span style="font-size:11px">→ API 사용량 한도 초과. 잠시 후 다시 시도해주세요</span>';
+      else if (errMsg.includes('network') || errMsg.includes('fetch') || errMsg.includes('Failed')) hint = '<br><span style="font-size:11px">→ 네트워크 오류. 인터넷 연결을 확인해주세요</span>';
+      document.getElementById('result-empty').innerHTML =
+        '<div class="empty-icon">❌</div>' +
+        '<div class="empty-text" style="color:#e53e3e">분석 실패</div>' +
+        '<div style="margin-top:8px;font-size:12px;color:#718096;padding:0 12px;word-break:break-all">' + errMsg + hint + '</div>' +
+        '<button onclick="processFile(currentPdfFile)" class="btn btn-primary" style="margin-top:14px" id="btn-retry-pdf">🔄 다시 시도</button>';
+      document.getElementById('result-empty').style.display = 'block';
+      toast('분석 실패: ' + errMsg, 'error');
+    }
+  };
+  reader.onerror = () => {
+    hideLoading();
+    document.getElementById('result-empty').innerHTML =
+      '<div class="empty-icon">❌</div><div class="empty-text" style="color:#e53e3e">파일 읽기 실패</div>' +
+      '<div style="margin-top:8px;font-size:12px;color:#718096">PDF 파일이 손상되었을 수 있습니다</div>';
+    document.getElementById('result-empty').style.display = 'block';
+    toast('파일 읽기 실패', 'error');
+  };
+  // 재시도 및 PDF 저장을 위해 파일/dataUrl 보관
+  window.currentPdfFile = file;
+  window.currentPdfFileName = file.name;
+  reader.readAsDataURL(file);
+  // dataUrl 별도 저장 (계약 저장 시 PDF 연동용)
+  const urlReader = new FileReader();
+  urlReader.onload = (ev) => { window.currentPdfDataUrl = ev.target.result; };
+  urlReader.readAsDataURL(file);
+}
+
+async function analyzeWithGemini(base64, apiKey) {
+  const model = settings.model || 'gemini-2.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const prompt = `이 임대차계약서 PDF에서 아래 정보를 추출하여 JSON 형식으로만 응답해주세요.
+(코드블록 없이 순수 JSON만 응답. 모르는 값은 null)
+
+{
+  "주소": "도로명 또는 지번 주소",
+  "동호수": "동/호수 (예: 연산다올 502호)",
+  "부동산종류": "아파트/오피스텔/상가/사무실/주택/기타 중 하나",
+  "면적": "숫자만 (㎡)",
+  "임차인명": "임차인 이름 또는 법인명",
+  "연락처": "전화번호",
+  "임차인구분": "개인 또는 법인",
+  "보증금": "숫자만 (원 단위, 예: 50000000)",
+  "월세": "숫자만 (원 단위, 예: 500000)",
+  "관리비": "숫자만 (원 단위, 없으면 0)",
+  "계약시작일": "YYYY-MM-DD",
+  "계약종료일": "YYYY-MM-DD",
+  "월세납입일": "숫자만 (매월 며칠, 예: 10)",
+  "계약일": "YYYY-MM-DD",
+  "계약유형": "신규/갱신/묵시적갱신 중 하나",
+  "특약사항": "주요 특약 요약 (없으면 null)"
+}`;
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { inline_data: { mime_type: 'application/pdf', data: base64 } },
+          { text: prompt }
+        ]}],
+        generationConfig: { temperature: 0, maxOutputTokens: 4096 }
+      })
+    });
+  } catch (netErr) {
+    throw new Error('네트워크 오류: ' + netErr.message);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    const code = data.error.code || 0;
+    const msg = data.error.message || '알 수 없는 오류';
+    const status = data.error.status || '';
+    // 진짜 오류 메시지를 그대로 보여줌 (번역 없음) + 힌트만 추가
+    let hint = '';
+    if (status === 'INVALID_ARGUMENT' || msg.includes('API key') || msg.includes('API_KEY')) {
+      hint = '\n→ API 키가 잘못되었습니다. 설정에서 다시 확인해주세요.';
+    } else if (code === 429 || status === 'RESOURCE_EXHAUSTED' || msg.toLowerCase().includes('quota')) {
+      hint = '\n→ 무료 사용량 한도 초과. 내일 다시 시도하거나 다른 API 키를 발급받으세요.';
+    } else if (msg.includes('not found') || msg.includes('404')) {
+      hint = '\n→ 모델을 찾을 수 없습니다. 설정에서 다른 모델을 선택해보세요.';
+    } else if (msg.includes('billing') || msg.includes('BILLING')) {
+      hint = '\n→ Google Cloud 결제 설정이 필요합니다. aistudio.google.com에서 무료 키를 발급받으세요.';
+    } else if (code === 403 || status === 'PERMISSION_DENIED') {
+      hint = '\n→ API 키 권한 없음. aistudio.google.com에서 새 키를 발급받으세요.';
+    }
+    throw new Error('[Gemini ' + code + '] ' + msg + hint);
+  }
+
+  // gemini-2.5-flash는 thinking part가 있을 수 있으므로 실제 텍스트 파트를 찾음
+  const parts = data.candidates?.[0]?.content?.parts || [];
+  const textPart = parts.find(p => p.text && !p.thought);
+  if (!textPart) {
+    const reason = data.candidates?.[0]?.finishReason || '';
+    throw new Error('AI 응답이 없습니다' + (reason ? ' (사유: ' + reason + ')' : ''));
+  }
+
+  const text = textPart.text.trim();
+  const cleaned = text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+
+  // 1) 텍스트 전체가 바로 JSON인 경우 (가장 흔함)
+  try { return JSON.parse(cleaned); } catch(e1) {}
+
+  // 2) {} 블록 추출 시도
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (match) {
+    try { return JSON.parse(match[0]); } catch(e2) {}
+  }
+
+  // 3) 잘린 JSON 복구 시도 (maxTokens 부족으로 잘린 경우)
+  const startIdx = cleaned.indexOf('{');
+  if (startIdx !== -1) {
+    let partial = cleaned.slice(startIdx);
+    // 마지막 완전한 key-value 쌍 뒤에서 자르고 닫기
+    const lastComma = partial.lastIndexOf(',');
+    if (lastComma !== -1) partial = partial.slice(0, lastComma) + '\n}';
+    try { return JSON.parse(partial); } catch(e3) {}
+  }
+
+  throw new Error('JSON 파싱 실패. AI 응답: ' + cleaned.substring(0, 150));
+}
+
+function showResult(d) {
+  document.getElementById('result-empty').style.display = 'none';
+  document.getElementById('result-content').style.display = 'block';
+  const items = [
+    ['주소', d.주소], ['동/호수', d.동호수], ['부동산종류', d.부동산종류], ['면적', d.면적 ? d.면적+'㎡' : null],
+    ['임차인', d.임차인명], ['연락처', d.연락처], ['임차인구분', d.임차인구분],
+    ['보증금', d.보증금 ? formatMoney(d.보증금) : null],
+    ['월세', d.월세 ? formatMoney(d.월세) : null],
+    ['관리비', d.관리비 ? formatMoney(d.관리비) : null],
+    ['계약시작일', d.계약시작일], ['계약종료일', d.계약종료일],
+    ['월세납입일', d.월세납입일 ? '매월 '+d.월세납입일+'일' : null],
+    ['계약유형', d.계약유형], ['특약사항', d.특약사항]
+  ];
+  document.getElementById('result-grid').innerHTML = items.filter(([,v])=>v).map(([k,v])=>
+    `<div class="result-item"><div class="result-key">${k}</div><div class="result-val">${v}</div></div>`
+  ).join('');
+}
+
+function saveExtractedContract() {
+  if (!extractedData) return;
+  const id = addContractFromData(extractedData);
+  // PDF 분석 탭에서 업로드한 파일을 계약서 PDF로 자동 저장
+  if (id && window.currentPdfDataUrl) {
+    contractPdfs[id] = { data: window.currentPdfDataUrl, name: window.currentPdfFileName || 'contract.pdf' };
+    savePdfs();
+    syncToCloudIfConnected();
+    window.currentPdfDataUrl = null;
+    window.currentPdfFileName = null;
+  }
+  document.getElementById('result-content').style.display = 'none';
+  document.getElementById('result-empty').style.display = 'block';
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('pdf-input').value = '';
+  extractedData = null;
+  toast('✅ 계약이 저장되었습니다' + (id && contractPdfs[id] ? ' (PDF 포함)' : ''), 'success');
+  _showPage('contracts');
+}
+
+function openContractModalWithData() {
+  if (!extractedData) return;
+  const d = extractedData;
+  openContractModal();
+  document.getElementById('f-address').value = d.주소 || '';
+  document.getElementById('f-unit').value = d.동호수 || '';
+  setSelectValue('f-type', d.부동산종류);
+  document.getElementById('f-area').value = d.면적 || '';
+  document.getElementById('f-tenant').value = d.임차인명 || '';
+  document.getElementById('f-phone').value = d.연락처 || '';
+  setSelectValue('f-tenant-type', d.임차인구분);
+  document.getElementById('f-deposit').value = d.보증금 || '';
+  document.getElementById('f-rent').value = d.월세 || '';
+  document.getElementById('f-maintenance').value = d.관리비 || 0;
+  document.getElementById('f-payment-day').value = d.월세납입일 || '';
+  document.getElementById('f-start').value = d.계약시작일 || '';
+  document.getElementById('f-end').value = d.계약종료일 || '';
+  document.getElementById('f-contract-date').value = d.계약일 || '';
+  setSelectValue('f-contract-type', d.계약유형);
+  document.getElementById('f-special').value = d.특약사항 || '';
+}
+
+function generateContractId() {
+  // 현재 존재하는 모든 ID를 Set에 담아 O(1)로 충돌 체크
+  const existing = new Set(contracts.map(c => c.id).filter(Boolean));
+  let num = 1, id;
+  do {
+    id = 'P' + String(num).padStart(3, '0');
+    num++;
+  } while (existing.has(id));
+  return id;
+}
+
+function addContractFromData(d) {
+  const id = generateContractId();
+  contracts.push({
+    id, address: d.주소||'', unit: d.동호수||'', propertyType: d.부동산종류||'',
+    area: d.면적||'', tenant: d.임차인명||'', phone: d.연락처||'',
+    tenantType: d.임차인구분||'개인', deposit: d.보증금||0, monthlyRent: d.월세||0,
+    maintenance: d.관리비||0, paymentDay: d.월세납입일||'',
+    startDate: d.계약시작일||'', endDate: d.계약종료일||'',
+    contractDate: d.계약일||'', contractType: d.계약유형||'신규',
+    specialTerms: d.특약사항||'', notes: '', payments: {},
+    createdAt: new Date().toISOString()
+  });
+  saveData();
+  return id;
+}
+
+// ── CONTRACT MODAL ────────────────────────────────────
+function openContractModal(id) {
+  document.getElementById('edit-id').value = id || '';
+  document.getElementById('modal-title').textContent = id ? '계약 수정' : '계약 추가';
+  if (!id) {
+    ['f-address','f-unit','f-area','f-tenant','f-phone','f-deposit','f-rent','f-maintenance','f-payment-day','f-start','f-end','f-contract-date','f-special','f-notes'].forEach(x => {
+      const el = document.getElementById(x);
+      el.value = x === 'f-maintenance' ? '0' : '';
+    });
+    clearModalPdf();
+  }
+  document.getElementById('contract-modal').classList.add('open');
+}
+
+function editContract(id) {
+  const c = contracts.find(x => x.id === id);
+  if (!c) return;
+  openContractModal(id);
+  document.getElementById('f-address').value = c.address || '';
+  document.getElementById('f-unit').value = c.unit || '';
+  setSelectValue('f-type', c.propertyType);
+  document.getElementById('f-area').value = c.area || '';
+  document.getElementById('f-tenant').value = c.tenant || '';
+  document.getElementById('f-phone').value = c.phone || '';
+  setSelectValue('f-tenant-type', c.tenantType);
+  document.getElementById('f-deposit').value = c.deposit || '';
+  document.getElementById('f-rent').value = c.monthlyRent || '';
+  document.getElementById('f-maintenance').value = c.maintenance || 0;
+  document.getElementById('f-payment-day').value = c.paymentDay || '';
+  document.getElementById('f-start').value = c.startDate || '';
+  document.getElementById('f-end').value = c.endDate || '';
+  document.getElementById('f-contract-date').value = c.contractDate || '';
+  setSelectValue('f-contract-type', c.contractType);
+  document.getElementById('f-special').value = c.specialTerms || '';
+  document.getElementById('f-notes').value = c.notes || '';
+  // PDF 상태 복원
+  modalPdfCleared = false; // 수정 모달 열 때 초기화
+  const pdf = contractPdfs[c.id];
+  modalPdfData = pdf ? pdf.data : null;
+  modalPdfName = pdf ? pdf.name : '';
+  document.getElementById('f-pdf-name').textContent = modalPdfName;
+  // Google Drive 링크
+  const driveLinkEl = document.getElementById('f-drive-link');
+  if (driveLinkEl) driveLinkEl.value = c.driveLink || '';
+  document.getElementById('f-pdf-view').style.display = pdf ? '' : 'none';
+  document.getElementById('f-pdf-clear').style.display = pdf ? '' : 'none';
+}
+
+function closeContractModal() {
+  document.getElementById('contract-modal').classList.remove('open');
+}
+
+function saveContract() {
+  const address = document.getElementById('f-address').value.trim();
+  const tenant = document.getElementById('f-tenant').value.trim();
+  if (!address) { toast('주소를 입력해주세요', 'error'); return; }
+  if (!tenant) { toast('임차인명을 입력해주세요', 'error'); return; }
+
+  const id = document.getElementById('edit-id').value;
+  const data = {
+    address, unit: v('f-unit'), propertyType: v('f-type'), area: v('f-area'),
+    tenant, phone: v('f-phone'), tenantType: v('f-tenant-type'),
+    deposit: Number(v('f-deposit'))||0, monthlyRent: Number(v('f-rent'))||0,
+    maintenance: Number(v('f-maintenance'))||0, paymentDay: v('f-payment-day'),
+    startDate: v('f-start'), endDate: v('f-end'), contractDate: v('f-contract-date'),
+    contractType: v('f-contract-type'), specialTerms: v('f-special'), notes: v('f-notes'),
+    driveLink: (document.getElementById('f-drive-link')?.value.trim() || '')
+  };
+
+  let savedId = id;
+  if (id) {
+    const idx = contracts.findIndex(c => c.id === id);
+    if (idx >= 0) contracts[idx] = { ...contracts[idx], ...data };
+  } else {
+    const newId = generateContractId();
+    contracts.push({ id: newId, payments: {}, createdAt: new Date().toISOString(), ...data });
+    savedId = newId;
+  }
+  // PDF 저장/삭제
+  if (savedId) {
+    if (modalPdfData) {
+      // 새 PDF 업로드 — 로컬 + 클라우드
+      contractPdfs[savedId] = { data: modalPdfData, name: modalPdfName };
+      savePdfs();
+      uploadPdfToCloud(savedId, modalPdfData, modalPdfName);
+    } else if (modalPdfCleared) {
+      // 사용자가 명시적으로 삭제
+      delete contractPdfs[savedId];
+      savePdfs();
+      deletePdfFromCloud(savedId);
+    }
+    // 아무것도 안 했으면(기존 PDF 유지) → 변경 없음
+  }
+  modalPdfData = null; modalPdfName = ''; modalPdfCleared = false;
+  saveData();
+  closeContractModal();
+  renderContracts();
+  renderDashboard();
+  toast(id ? '계약이 수정되었습니다' : '계약이 추가되었습니다', 'success');
+}
+
+function deleteContract(id) {
+  if (!confirm('이 계약을 삭제하시겠습니까?')) return;
+  contracts = contracts.filter(c => c.id !== id);
+  if (contractPdfs[id]) { delete contractPdfs[id]; savePdfs(); }
+  deletePdfFromCloud(id);
+  saveData();
+  renderContracts();
+  renderDashboard();
+  toast('계약이 삭제되었습니다', 'success');
+}
+
+// ── SETTINGS ─────────────────────────────────────────
+function loadSettings() {
+  try {
+    const s = JSON.parse(storageGet('rental_settings') || '{}');
+    const inp = document.getElementById('api-key-input');
+    const sel = document.getElementById('model-select');
+    if (inp) inp.value = s.apiKey || '';
+    if (sel) {
+      const targetModel = s.model || 'gemini-2.5-flash';
+      sel.value = targetModel;
+      // 선택한 모델이 드롭다운에 없으면 첫 번째 옵션(gemini-2.5-flash)으로 강제 복구
+      if (!sel.value || sel.value !== targetModel) {
+        sel.value = 'gemini-2.5-flash';
+        // 복구된 값을 즉시 settings에도 반영
+        settings.model = 'gemini-2.5-flash';
+        storageSet('rental_settings', JSON.stringify(settings));
+      }
+    }
+    const st = document.getElementById('save-status');
+    if (st) st.textContent = s.apiKey ? '✓ 저장됨' : '';
+  } catch(e) {}
+}
+function autoSaveSettings() {
+  try {
+    const inp = document.getElementById('api-key-input');
+    const sel = document.getElementById('model-select');
+    settings.apiKey = inp ? inp.value.trim() : '';
+    settings.model = sel ? sel.value : 'gemini-2.5-flash';
+    storageSet('rental_settings', JSON.stringify(settings));
+    const st = document.getElementById('save-status');
+    if (st) st.textContent = settings.apiKey ? '✓ 저장됨' : '';
+  } catch(e) {}
+}
+function saveSettings() {
+  autoSaveSettings();
+}
+
+function exportAllData() {
+  const data = { contracts, settings: { model: settings.model }, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `임대관리_백업_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+function importData() { document.getElementById('import-input').click(); }
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.contracts) { contracts = data.contracts; deduplicateContractIds(); saveData(); }
+      toast('데이터를 복원했습니다', 'success');
+      renderDashboard();
+    } catch { toast('파일 형식이 올바르지 않습니다', 'error'); }
+  };
+  reader.readAsText(file);
+}
+function clearAllData() {
+  if (!confirm('모든 계약 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+  contracts = [];
+  saveData();
+  renderDashboard();
+  toast('데이터가 삭제되었습니다', 'success');
+}
+
+// ── EXPORT EXCEL ─────────────────────────────────────
+function exportExcel() {
+  if (contracts.length === 0) { toast('내보낼 계약 데이터가 없습니다', 'error'); return; }
+  const rows = contracts.map(c => ({
+    'ID': c.id, '주소': c.address, '동/호수': c.unit, '부동산종류': c.propertyType,
+    '임차인': c.tenant, '연락처': c.phone, '보증금': Number(c.deposit)||0,
+    '월세': Number(c.monthlyRent)||0, '관리비': Number(c.maintenance)||0,
+    '월세납입일': c.paymentDay ? `매월 ${c.paymentDay}일` : '',
+    '계약시작일': c.startDate, '계약종료일': c.endDate, '계약유형': c.contractType,
+    '특약사항': c.specialTerms
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '계약목록');
+  XLSX.writeFile(wb, `임대관리_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('엑셀 파일이 다운로드되었습니다', 'success');
+}
+
+// ── UTILS ─────────────────────────────────────────────
+function formatMoney(n) {
+  const num = Number(n) || 0;
+  if (num === 0) return '0원';
+  if (num >= 100000000) return (num/100000000).toFixed(num%100000000===0?0:1) + '억원';
+  if (num >= 10000) return Math.round(num/10000) + '만원';
+  return num.toLocaleString() + '원';
+}
+function v(id) { return document.getElementById(id)?.value || ''; }
+function setSelectValue(id, val) {
+  const el = document.getElementById(id);
+  if (!el || !val) return;
+  for (let o of el.options) { if (o.value === val || o.text === val) { el.value = o.value; break; } }
+}
+function showLoading(text) {
+  document.getElementById('loading-text').textContent = text || '처리 중...';
+  document.getElementById('loading').classList.add('open');
+}
+function hideLoading() { document.getElementById('loading').classList.remove('open'); }
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── INIT ──────────────────────────────────────────────
+// 페이지 로드 시 대시보드만 표시 (이전 URL hash로 인한 다중 페이지 표시 방지)
+try { _showPage('dashboard'); } catch(e) {}
+try { renderContracts(); } catch(e) {}
+try { goToToday(); } catch(e) {}
+try { loadSettings(); } catch(e) {}
+
+// 200ms마다 API 키 자동 저장 (클릭 없이도 저장됨)
+setInterval(function() {
+  try {
+    const inp = document.getElementById('api-key-input');
+    if (!inp) return;
+    const cur = inp.value.trim();
+    if (cur !== settings.apiKey) {
+      settings.apiKey = cur;
+      storageSet('rental_settings', JSON.stringify(settings));
+      const st = document.getElementById('save-status');
+      if (st) st.textContent = cur ? '✓ 저장됨' : '';
+    }
+  } catch(e) {}
+}, 200);
+
+// ── 페이지 전환 헬퍼 ─────────────────────────────────────
+function _showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-' + name);
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach((b,i) =>
+    b.classList.toggle('active', ['dashboard','contracts','monthly','pdf','settings'][i] === name)
+  );
+  if (name==='dashboard') renderDashboard();
+  else if (name==='contracts') renderContracts();
+  else if (name==='monthly') renderMonthly();
+  else if (name==='settings') loadSettings();
+}
+
+// ── EVENT LISTENERS + 액션 라우터 ────────────────────────
+// href="#액션명" 클릭 → hashchange 발생 → 여기서 JS 실행
+// history.replaceState: hashchange 재발생 없음, CSS :target 변경 없음 → 완전 JS 제어
+window.addEventListener('hashchange', () => {
+  const hash = location.hash;
+
+  // ── 페이지 탭 이동 ──
+  const pageNames = {'#page-dashboard':'dashboard','#page-contracts':'contracts','#page-monthly':'monthly','#page-pdf':'pdf','#page-settings':'settings'};
+  if (pageNames[hash]) { _showPage(pageNames[hash]); history.replaceState(null,'',hash); return; }
+
+  // ── GitHub Gist 모달 ──
+  if (hash === '#gist-setup') { openGistSetup(); return; }
+  if (hash === '#gist-connect') { gistConnect(); return; }
+  if (hash === '#gist-sync') { gistSync(); return; }
+  if (hash === '#gist-disconnect') { gistDisconnect(); history.replaceState(null,'','#page-settings'); return; }
+
+  // ── 계약 추가/수정/삭제 ──
+  if (hash === '#add-contract') {
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    openContractModal();
+    return;
+  }
+  if (hash === '#save-contract') {
+    saveContract();
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    return;
+  }
+  if (hash === '#close-contract') {
+    closeContractModal();
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    return;
+  }
+  if (hash === '#edit-before-save') {
+    openContractModalWithData();
+    _showPage('pdf'); history.replaceState(null, '', '#page-pdf');
+    return;
+  }
+  if (hash === '#save-extracted') {
+    saveExtractedContract();
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    return;
+  }
+  // 동적 수정: #edit-P001 형식 (반드시 #edit-before-save 이후에 체크)
+  if (hash.startsWith('#edit-') && hash.length > 6 && hash !== '#edit-before-save') {
+    editContract(hash.slice(6));
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    return;
+  }
+  // 동적 삭제: #delete-P001 형식
+  if (hash.startsWith('#delete-') && hash.length > 8) {
+    deleteContract(hash.slice(8));
+    _showPage('contracts'); history.replaceState(null, '', '#page-contracts');
+    return;
+  }
+
+  // ── 월세 현황 ──
+  if (hash === '#month-prev')  { changeMonth(-1); _showPage('monthly'); history.replaceState(null, '', '#page-monthly'); return; }
+  if (hash === '#month-next')  { changeMonth(1);  _showPage('monthly'); history.replaceState(null, '', '#page-monthly'); return; }
+  if (hash === '#month-today') { goToToday();     _showPage('monthly'); history.replaceState(null, '', '#page-monthly'); return; }
+  // 납부상태: #pay-P001-2026-05 형식
+  if (hash.startsWith('#pay-')) {
+    const rest = hash.slice(5); // "P001-2026-05"
+    const i = rest.indexOf('-'); // P001은 대시 없음, i=4
+    if (i > 0) cyclePayment(rest.slice(0, i), rest.slice(i + 1));
+    _showPage('monthly'); history.replaceState(null, '', '#page-monthly');
+    return;
+  }
+
+  // ── 설정/데이터 ──
+  if (hash === '#export-excel') { exportExcel();   _showPage('contracts'); history.replaceState(null, '', '#page-contracts'); return; }
+  if (hash === '#export-data')  { exportAllData(); _showPage('settings');  history.replaceState(null, '', '#page-settings');  return; }
+  if (hash === '#import-data')  { importData();    _showPage('settings');  history.replaceState(null, '', '#page-settings');  return; }
+  if (hash === '#clear-data')   { clearAllData();  _showPage('settings');  history.replaceState(null, '', '#page-settings');  return; }
+});
+
+// 클릭 위임 (fallback — 모든 버튼이 javascript: 링크로 변경됨)
+document.addEventListener('click', function(e) {
+  // upload-zone 클릭 fallback
+  if (e.target.closest && e.target.closest('#upload-zone')) {
+    const pdfInput = document.getElementById('pdf-input');
+    if (pdfInput) pdfInput.click();
+  }
+});
+
+// ── 윈도우 드래그앤드롭 (body ondrop 속성에서 호출) ──────
+function handleWindowDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer && e.dataTransfer.files[0];
+  if (!file || file.type !== 'application/pdf') return;
+  location.hash = 'page-pdf';
+  setTimeout(() => processFile(file), 150);
+}
+
+// Upload zone drag (HTML ondragover/ondrop 속성으로도 처리)
+try {
+  const uz = document.getElementById('upload-zone');
+  if (uz) {
+    uz.setAttribute('ondragover', 'handleDragOver(event)');
+    uz.setAttribute('ondragleave', 'handleDragLeave(event)');
+    uz.setAttribute('ondrop', 'handleDrop(event)');
+  }
+} catch(e) {}
+
+// ══════════════════════════════════════════════════════
+// GitHub Gist 동기화 엔진
+// - Personal Access Token (gist 권한) 으로 인증
+// - Secret Gist 1개에 contracts + pdfs 전체 저장
+// - 계정별 완전 분리 (토큰 = 계정)
+// ══════════════════════════════════════════════════════
+
+const GIST_FILENAME_DATA = 'rental_data.json';
+const GIST_FILENAME_PDFS = 'rental_pdfs.json';
+const GIST_DESCRIPTION  = '임대관리시스템_데이터';
+
+let gistToken  = '';   // GitHub PAT
+let gistId     = '';   // 연결된 Gist ID
+let gistUser   = '';   // 연결된 GitHub 유저명
+let modalPdfCleared = false;
+const cloudPdfIds = new Set(); // Gist에서는 사용 안 함 (PDF도 Gist에 저장)
+
+// ── 초기화: localStorage에서 토큰/Gist ID 복원 ──────────
+(function initGist() {
+  gistToken = storageGet('gist_token') || '';
+  gistId    = storageGet('gist_id')    || '';
+  gistUser  = storageGet('gist_user')  || '';
+  updateGistUI();
+  if (gistToken && !gistId) {
+    // 토큰은 있는데 gist_id가 없으면 자동으로 Gist 찾기
+    findOrCreateGist().catch(() => {});
+  }
+})();
+
+function updateGistUI() {
+  const badge    = document.getElementById('gistUserBadge');
+  const nameEl   = document.getElementById('gistUserName');
+  const btnSync  = document.getElementById('btnGistSync');
+  const btnDisc  = document.getElementById('btnGistDisconnect');
+  const btnSetup = document.getElementById('btnGistSetup');
+  const statusEl = document.getElementById('gistSettingStatus');
+
+  if (gistToken && gistUser) {
+    if (badge)    { badge.style.display = ''; if (nameEl) nameEl.textContent = gistUser; }
+    if (btnSync)   btnSync.style.display   = '';
+    if (btnDisc)   btnDisc.style.display   = '';
+    if (btnSetup)  btnSetup.style.display  = 'none';
+    if (statusEl) {
+      statusEl.style.background = '#def7ec';
+      statusEl.style.color = '#065f46';
+      statusEl.innerHTML = `✅ <b>${gistUser}</b> 연결됨 — 데이터가 GitHub Gist에 자동 저장됩니다.`;
+    }
+  } else {
+    if (badge)    badge.style.display    = 'none';
+    if (btnSync)  btnSync.style.display  = 'none';
+    if (btnDisc)  btnDisc.style.display  = 'none';
+    if (btnSetup) btnSetup.style.display = '';
+    if (statusEl) {
+      statusEl.style.background = '#fef3c7';
+      statusEl.style.color = '#92400e';
+      statusEl.innerHTML = '⚠️ 미연결 — 우측 상단 <b>🔑 GitHub 연결</b> 버튼을 눌러 토큰을 입력하세요.';
+    }
+  }
+}
+
+// ── 모달 열기/닫기 ────────────────────────────────────
+function openGistSetup() {
+  const m = document.getElementById('gistModal');
+  if (m) m.classList.add('open');
+  const inp = document.getElementById('gistTokenInput');
+  if (inp) { inp.value = gistToken || ''; inp.focus(); }
+}
+function closeGistSetup() {
+  const m = document.getElementById('gistModal');
+  if (m) m.classList.remove('open');
+}
+
+// ── 연결하기 ──────────────────────────────────────────
+async function gistConnect() {
+  const inp = document.getElementById('gistTokenInput');
+  const token = inp ? inp.value.trim() : '';
+  if (!token) { showGistError('토큰을 입력해주세요.'); return; }
+
+  showLoading('GitHub 인증 중...');
+  try {
+    // 유저 정보 확인
+    const userRes = await fetch('https://api.github.com/user', {
+      headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' }
+    });
+    if (!userRes.ok) throw new Error('토큰이 유효하지 않습니다.');
+    const userData = await userRes.json();
+
+    gistToken = token;
+    gistUser  = userData.login;
+    storageSet('gist_token', gistToken);
+    storageSet('gist_user', gistUser);
+
+    // Gist 찾거나 생성
+    await findOrCreateGist();
+
+    // 클라우드 데이터 불러오기
+    await gistLoad();
+
+    hideLoading();
+    closeGistSetup();
+    updateGistUI();
+    toast(`✅ ${gistUser} 연결 완료! 데이터를 불러왔습니다.`, 'success');
+  } catch(e) {
+    hideLoading();
+    showGistError(e.message);
+  }
+}
+
+// ── 연결 해제 ─────────────────────────────────────────
+function gistDisconnect() {
+  if (!confirm('GitHub 연결을 해제하시겠습니까?\n(로컬 데이터는 유지됩니다)')) return;
+  gistToken = ''; gistId = ''; gistUser = '';
+  storageSet('gist_token', '');
+  storageSet('gist_id', '');
+  storageSet('gist_user', '');
+  updateGistUI();
+  toast('연결이 해제됐습니다.', 'success');
+}
+
+// ── Gist 찾기 또는 생성 ──────────────────────────────
+async function findOrCreateGist() {
+  if (!gistToken) return;
+
+  // 기존 Gist ID가 있으면 유효성 확인
+  if (gistId) {
+    try {
+      const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+        headers: { Authorization: `token ${gistToken}` }
+      });
+      if (r.ok) return; // 이미 유효
+    } catch(e) {}
+  }
+
+  // 기존 Gist 목록에서 찾기
+  const listRes = await fetch('https://api.github.com/gists?per_page=100', {
+    headers: { Authorization: `token ${gistToken}` }
+  });
+  if (!listRes.ok) throw new Error('Gist 목록을 가져올 수 없습니다.');
+  const list = await listRes.json();
+  const found = list.find(g => g.description === GIST_DESCRIPTION);
+
+  if (found) {
+    gistId = found.id;
+  } else {
+    // 새 Gist 생성
+    const createRes = await fetch('https://api.github.com/gists', {
+      method: 'POST',
+      headers: { Authorization: `token ${gistToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: GIST_DESCRIPTION,
+        public: false,
+        files: {
+          [GIST_FILENAME_DATA]: { content: JSON.stringify({ contracts: [], updatedAt: new Date().toISOString() }) },
+          [GIST_FILENAME_PDFS]: { content: JSON.stringify({}) }
+        }
+      })
+    });
+    if (!createRes.ok) throw new Error('Gist 생성에 실패했습니다.');
+    const created = await createRes.json();
+    gistId = created.id;
+  }
+  storageSet('gist_id', gistId);
+}
+
+// ── Gist에서 데이터 불러오기 ─────────────────────────
+async function gistLoad() {
+  if (!gistToken || !gistId) return;
+  const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: { Authorization: `token ${gistToken}` }
+  });
+  if (!r.ok) throw new Error('Gist 불러오기 실패');
+  const gist = await r.json();
+
+  // 계약 데이터
+  const dataFile = gist.files[GIST_FILENAME_DATA];
+  if (dataFile) {
+    let content = dataFile.content;
+    // truncated면 raw_url로 가져오기
+    if (dataFile.truncated) {
+      const rawRes = await fetch(dataFile.raw_url);
+      content = await rawRes.text();
+    }
+    const d = JSON.parse(content);
+    if (Array.isArray(d.contracts)) {
+      contracts = d.contracts;
+      deduplicateContractIds();
+      storageSet('rental_contracts', JSON.stringify(contracts));
+    }
+    if (d.settings) {
+      // API 키는 기기별로 다를 수 있으므로 Gist에서 덮어쓰지 않음 (모델 설정만 동기화)
+      const currentApiKey = settings.apiKey; // 현재 기기의 키 보존
+      settings = { ...settings, ...d.settings, apiKey: currentApiKey };
+      storageSet('rental_settings', JSON.stringify(settings));
+    }
+  }
+
+  // PDF는 Gist에서 불러오지 않음 — localStorage에만 유지 (덮어쓰기 방지)
+  // contractPdfs는 이미 로컬에서 로드됨
+
+  renderDashboard(); renderContracts(); goToToday(); loadSettings();
+}
+
+// ── Gist에 데이터 저장 ───────────────────────────────
+async function gistSave() {
+  if (!gistToken || !gistId) return;
+  try {
+    const body = {
+      files: {
+        [GIST_FILENAME_DATA]: {
+          content: JSON.stringify({
+            contracts,
+            settings: { model: settings.model }, // API키/PDF는 Gist 저장 안 함
+            updatedAt: new Date().toISOString()
+          })
+        }
+        // PDF는 용량 문제로 Gist 저장 제외 → localStorage에만 유지
+      }
+    };
+    const r = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `token ${gistToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error('Gist 저장 실패');
+  } catch(e) {
+    console.warn('Gist 자동 저장 실패:', e.message);
+  }
+}
+
+// ── 수동 동기화 버튼 ─────────────────────────────────
+async function gistSync() {
+  if (!gistToken || !gistId) { toast('GitHub가 연결되지 않았습니다.', 'error'); return; }
+  showLoading('Gist에서 최신 데이터 불러오는 중...');
+  try {
+    await gistLoad();
+    hideLoading();
+    toast('✅ 동기화 완료!', 'success');
+  } catch(e) {
+    hideLoading();
+    toast('동기화 실패: ' + e.message, 'error');
+  }
+}
+
+// ── saveData / savePdfs 에 Gist 자동 저장 연동 ────────
+function syncToCloudIfConnected() {
+  if (gistToken && gistId) {
+    gistSave().catch(() => {});
+  }
+}
+
+// ── 업로드/삭제 스텁 (기존 코드 호환) ────────────────
+async function uploadPdfToCloud() {}
+async function deletePdfFromCloud() {}
+
+function showGistError(msg) {
+  const e = document.getElementById('gistTokenError');
+  if (e) { e.textContent = msg; e.style.display = ''; }
+}
+
+// 기존 Firebase 함수명 호환 스텁
+function updateAuthUI() {}
+function openLoginModal() { openGistSetup(); }
+function closeLoginModal() { closeGistSetup(); }
+</script>
+
+
+</body></html>
