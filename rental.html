@@ -1680,21 +1680,36 @@ async function analyzeWithGemini(base64, apiKey) {
   "특약사항": "주요 특약 요약 (없으면 null)"
 }`;
 
-  let res;
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [
-          { inline_data: { mime_type: 'application/pdf', data: base64 } },
-          { text: prompt }
-        ]}],
-        generationConfig: { temperature: 0, maxOutputTokens: 4096 }
-      })
-    });
-  } catch (netErr) {
-    throw new Error('네트워크 오류: ' + netErr.message);
+  const body = JSON.stringify({
+    contents: [{ parts: [
+      { inline_data: { mime_type: 'application/pdf', data: base64 } },
+      { text: prompt }
+    ]}],
+    generationConfig: { temperature: 0, maxOutputTokens: 4096 }
+  });
+
+  // 503(서버 과부하) 자동 재시도 — 최대 3회, 5초 간격
+  let res, lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      if (attempt > 1) {
+        document.getElementById('loading-text').textContent =
+          `서버 혼잡 — ${attempt}번째 재시도 중... (${attempt}/3)`;
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      });
+      if (res.status !== 503) break; // 503 아니면 바로 처리
+      lastErr = new Error('[Gemini 503] 서버 혼잡. 잠시 후 자동 재시도합니다...');
+    } catch (netErr) {
+      throw new Error('네트워크 오류: ' + netErr.message);
+    }
+  }
+  if (!res || res.status === 503) {
+    throw lastErr || new Error('[Gemini 503] 서버가 계속 혼잡합니다. 잠시 후 다시 시도해주세요.');
   }
 
   const data = await res.json();
