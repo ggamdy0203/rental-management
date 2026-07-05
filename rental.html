@@ -2224,8 +2224,10 @@ const cloudPdfIds = new Set(); // Gist에서는 사용 안 함 (PDF도 Gist에 �
   gistId    = storageGet('gist_id')    || '';
   gistUser  = storageGet('gist_user')  || '';
   updateGistUI();
-  if (gistToken && !gistId) {
-    // 토큰은 있는데 gist_id가 없으면 자동으로 Gist 찾기
+  if (gistToken && gistId) {
+    // 연결되어 있으면 시작 시 자동으로 최신 데이터 로드 (API 키 포함)
+    gistLoad().then(() => { loadSettings(); }).catch(() => {});
+  } else if (gistToken && !gistId) {
     findOrCreateGist().catch(() => {});
   }
 })();
@@ -2390,9 +2392,7 @@ async function gistLoad() {
       storageSet('rental_contracts', JSON.stringify(contracts));
     }
     if (d.settings) {
-      // API 키는 기기별로 다를 수 있으므로 Gist에서 덮어쓰지 않음 (모델 설정만 동기화)
-      const currentApiKey = settings.apiKey; // 현재 기기의 키 보존
-      settings = { ...settings, ...d.settings, apiKey: currentApiKey };
+      settings = { ...settings, ...d.settings };
       storageSet('rental_settings', JSON.stringify(settings));
     }
   }
@@ -2412,7 +2412,7 @@ async function gistSave() {
         [GIST_FILENAME_DATA]: {
           content: JSON.stringify({
             contracts,
-            settings: { model: settings.model }, // API키/PDF는 Gist 저장 안 함
+            settings: { model: settings.model, apiKey: settings.apiKey },
             updatedAt: new Date().toISOString()
           })
         }
