@@ -3,7 +3,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>임대관리 시스템</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- Firebase 제거 → GitHub Gist 방식으로 교체 -->
 <style>
 :root {
@@ -368,7 +368,7 @@ tr.drag-over td { background: #dbeafe !important; box-shadow: inset 0 2px 0 var(
 .dash-cal-day {
   min-height: 80px; border: 1px solid var(--border); border-radius: 6px;
   padding: 4px 5px; background: white; vertical-align: top; position: relative;
-  font-size: 11px; min-width: 0; overflow: hidden;
+  font-size: 11px;
 }
 .dash-cal-day.today { background: #eff6ff; border-color: var(--blue); }
 .dash-cal-day.other-month { background: var(--gray-light); opacity: 0.5; }
@@ -765,11 +765,11 @@ tr[draggable="true"]:hover .drag-handle { color: var(--blue); }
         <div style="font-size:11px;color:var(--text-sub);margin-top:-6px;margin-bottom:8px">API 키를 입력하면 자동으로 저장됩니다</div>
         <div class="settings-row">
           <div class="settings-label">AI 모델</div>
-          <select class="settings-input" id="model-select" style="flex:0.5" onchange="autoSaveSettings()">
-            <option value="gemini-2.5-flash">gemini-2.5-flash ✅ (권장)</option>
-            <option value="gemini-2.0-flash">gemini-2.0-flash (안정)</option>
-            <option value="gemini-1.5-flash">gemini-1.5-flash (구버전)</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro (고성능)</option>
+          <select class="settings-input" id="model-select" style="flex:0.5">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (권장)</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+            <option value="gemini-1.5-flash-latest">gemini-1.5-flash-latest</option>
+            <option value="gemini-1.5-pro-latest">gemini-1.5-pro-latest</option>
           </select>
         </div>
         <div style="font-size:12px;color:var(--text-sub);margin-top:4px">
@@ -949,17 +949,12 @@ function storageSet(key, value) {
 }
 
 let contracts = [];
-let settings = {apiKey:'', model:'gemini-1.5-flash-latest'};
+let settings = {apiKey:'', model:'gemini-2.5-flash'};
 let contractPdfs = {};           // { contractId: { data: 'data:...base64...', name: 'file.pdf' } }
 let modalPdfData = null;         // 모달 열린 동안 임시 보관
 let modalPdfName = '';
 try { contracts    = JSON.parse(storageGet('rental_contracts') || '[]'); } catch(e) {}
-try {
-  settings = JSON.parse(storageGet('rental_settings') || '{}');
-  // 유효한 모델명 목록 — 이 목록에 없으면 기본값으로 복구
-  const validModels = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-1.5-flash','gemini-2.0-flash-lite'];
-  if (!settings.model || !validModels.includes(settings.model)) settings.model = 'gemini-2.5-flash';
-} catch(e) { settings = {apiKey:'', model:'gemini-2.5-flash'}; }
+try { settings     = JSON.parse(storageGet('rental_settings')  || '{}'); settings.model = settings.model || 'gemini-2.5-flash'; } catch(e) {}
 try { contractPdfs = JSON.parse(storageGet('rental_pdfs')      || '{}'); } catch(e) {}
 try { deduplicateContractIds(); } catch(e) {}  // PDF 로드 후 실행
 let currentMonth = { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
@@ -1086,28 +1081,8 @@ function renderDashboard() {
 
   // 납부일 이벤트 (상태 포함)
   const payKey = `${y}-${String(m).padStart(2,'0')}`;
-  // 캘린더에 표시할 달의 첫날/마지막날
-  const calMonthStart = new Date(y, m-1, 1);
-  const calMonthEnd   = new Date(y, m, 0);   // 해당 월 마지막일
-  calMonthStart.setHours(0,0,0,0);
-  calMonthEnd.setHours(23,59,59,999);
-
-  contracts.forEach(c => {
+  active.forEach(c => {
     if (!c.paymentDay) return;
-
-    // ── 계약 기간 체크 ──────────────────────────────
-    // 이 달이 계약 시작일보다 이전이면 표시 안 함
-    if (c.startDate) {
-      const start = new Date(c.startDate); start.setHours(0,0,0,0);
-      if (calMonthEnd < start) return;   // 표시 월 전체가 계약 시작 전
-    }
-    // 이 달이 계약 종료일보다 이후면 표시 안 함
-    if (c.endDate) {
-      const end = new Date(c.endDate); end.setHours(23,59,59,999);
-      if (calMonthStart > end) return;   // 표시 월 전체가 계약 종료 후
-    }
-    // ──────────────────────────────────────────────
-
     const pd = Number(c.paymentDay);
     const maxDay = new Date(y, m, 0).getDate();
     const d = Math.min(pd, maxDay);
@@ -1699,23 +1674,11 @@ async function analyzeWithGemini(base64, apiKey) {
 
   const data = await res.json();
   if (data.error) {
-    const code = data.error.code || 0;
+    const code = data.error.code || '';
     const msg = data.error.message || '알 수 없는 오류';
-    const status = data.error.status || '';
-    // 진짜 오류 메시지를 그대로 보여줌 (번역 없음) + 힌트만 추가
-    let hint = '';
-    if (status === 'INVALID_ARGUMENT' || msg.includes('API key') || msg.includes('API_KEY')) {
-      hint = '\n→ API 키가 잘못되었습니다. 설정에서 다시 확인해주세요.';
-    } else if (code === 429 || status === 'RESOURCE_EXHAUSTED' || msg.toLowerCase().includes('quota')) {
-      hint = '\n→ 무료 사용량 한도 초과. 내일 다시 시도하거나 다른 API 키를 발급받으세요.';
-    } else if (msg.includes('not found') || msg.includes('404')) {
-      hint = '\n→ 모델을 찾을 수 없습니다. 설정에서 다른 모델을 선택해보세요.';
-    } else if (msg.includes('billing') || msg.includes('BILLING')) {
-      hint = '\n→ Google Cloud 결제 설정이 필요합니다. aistudio.google.com에서 무료 키를 발급받으세요.';
-    } else if (code === 403 || status === 'PERMISSION_DENIED') {
-      hint = '\n→ API 키 권한 없음. aistudio.google.com에서 새 키를 발급받으세요.';
-    }
-    throw new Error('[Gemini ' + code + '] ' + msg + hint);
+    if (code === 400 || msg.toLowerCase().includes('api key')) throw new Error('API 키가 유효하지 않습니다. 설정에서 다시 확인해주세요.');
+    if (code === 429 || msg.toLowerCase().includes('quota')) throw new Error('API 사용량 한도 초과. 잠시 후 다시 시도해주세요.');
+    throw new Error(msg);
   }
 
   // gemini-2.5-flash는 thinking part가 있을 수 있으므로 실제 텍스트 파트를 찾음
@@ -1957,17 +1920,7 @@ function loadSettings() {
     const inp = document.getElementById('api-key-input');
     const sel = document.getElementById('model-select');
     if (inp) inp.value = s.apiKey || '';
-    if (sel) {
-      const targetModel = s.model || 'gemini-2.5-flash';
-      sel.value = targetModel;
-      // 선택한 모델이 드롭다운에 없으면 첫 번째 옵션(gemini-2.5-flash)으로 강제 복구
-      if (!sel.value || sel.value !== targetModel) {
-        sel.value = 'gemini-2.5-flash';
-        // 복구된 값을 즉시 settings에도 반영
-        settings.model = 'gemini-2.5-flash';
-        storageSet('rental_settings', JSON.stringify(settings));
-      }
-    }
+    if (sel) sel.value = s.model || 'gemini-2.5-flash';
     const st = document.getElementById('save-status');
     if (st) st.textContent = s.apiKey ? '✓ 저장됨' : '';
   } catch(e) {}
@@ -2224,10 +2177,8 @@ const cloudPdfIds = new Set(); // Gist에서는 사용 안 함 (PDF도 Gist에 �
   gistId    = storageGet('gist_id')    || '';
   gistUser  = storageGet('gist_user')  || '';
   updateGistUI();
-  if (gistToken && gistId) {
-    // 연결되어 있으면 시작 시 자동으로 최신 데이터 로드 (API 키 포함)
-    gistLoad().then(() => { loadSettings(); }).catch(() => {});
-  } else if (gistToken && !gistId) {
+  if (gistToken && !gistId) {
+    // 토큰은 있는데 gist_id가 없으면 자동으로 Gist 찾기
     findOrCreateGist().catch(() => {});
   }
 })();
@@ -2391,7 +2342,7 @@ async function gistLoad() {
       deduplicateContractIds();
       storageSet('rental_contracts', JSON.stringify(contracts));
     }
-    if (d.settings) {
+    if (d.settings?.apiKey) {
       settings = { ...settings, ...d.settings };
       storageSet('rental_settings', JSON.stringify(settings));
     }
@@ -2412,7 +2363,7 @@ async function gistSave() {
         [GIST_FILENAME_DATA]: {
           content: JSON.stringify({
             contracts,
-            settings: { model: settings.model, apiKey: settings.apiKey },
+            settings: { model: settings.model }, // API키/PDF는 Gist 저장 안 함
             updatedAt: new Date().toISOString()
           })
         }
